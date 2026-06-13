@@ -35,6 +35,18 @@ class TaskService:
             if task.workspace_id == workspace_id
         )
 
+    def count_failed(self, workspace_id: str) -> int:
+        return sum(
+            1 for task in self.tasks.values()
+            if task.workspace_id == workspace_id and task.status == "Failed"
+        )
+
+    def count_running(self, workspace_id: str) -> int:
+        return sum(
+            1 for task in self.tasks.values()
+            if task.workspace_id == workspace_id and task.status == "Running"
+        )
+
     def average_task_duration(self, workspace_id: str) -> float | None:
         """Average duration in seconds for completed tasks in this workspace."""
         durations = [

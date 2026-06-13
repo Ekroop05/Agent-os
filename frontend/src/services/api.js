@@ -79,4 +79,12 @@ export const api = {
     request(`/build/progress/${workspaceId}`),
   cancelBuild: (workspaceId) =>
     request(`/build/cancel/${workspaceId}`, { method: "POST" }),
+
+  // Logs
+  getLogs: (workspaceId, agent) => {
+    const params = new URLSearchParams();
+    if (agent) params.set("agent", agent);
+    const qs = params.toString();
+    return request(`/logs/${workspaceId}${qs ? `?${qs}` : ""}`);
+  },
 };

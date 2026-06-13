@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import Activity from "./pages/Activity";
@@ -25,6 +26,34 @@ const pages = {
 
 function getPath() {
   return window.location.pathname in pages ? window.location.pathname : "/";
+}
+
+// ── Payload Validators ──────────────────────────────────────────────────
+// Reject any object that lacks the minimum fields required to render.
+
+function isValidTask(obj) {
+  return obj && typeof obj.id === "string" && typeof obj.status === "string" && typeof obj.title === "string";
+}
+
+function isValidAgent(obj) {
+  return obj && typeof obj.id === "string" && typeof obj.name === "string" && typeof obj.status === "string";
+}
+
+function isValidWorkspace(obj) {
+  return obj && typeof obj.id === "string" && typeof obj.name === "string";
+}
+
+// ── Envelope Unwrapper ──────────────────────────────────────────────────
+// The backend now wraps every WS message in { event_type, source, message, severity, payload }.
+// Domain channels (tasks, agents, workspaces) carry full model objects inside payload.
+// For backwards compat, if we receive a bare object without event_type, treat it as a legacy payload.
+
+function unwrapEnvelope(raw) {
+  if (raw && typeof raw.event_type === "string" && raw.payload !== undefined) {
+    return { envelope: raw, payload: raw.payload };
+  }
+  // Legacy format: the raw message IS the payload
+  return { envelope: null, payload: raw };
 }
 
 export default function App() {
@@ -78,55 +107,116 @@ export default function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
+  // Build-time workspace polling
   useEffect(() => {
-    const activitySocket = connectChannel("activity", (event) => {
+    let pollInterval = null;
+    const isBuilding = state.workspaces.some(
+      (ws) => ws.build_status === "Building" || ws.build_status === "Reviewing"
+    );
+
+    if (isBuilding) {
+      pollInterval = setInterval(() => {
+        Promise.all([api.getWorkspaces(), api.getTasks()])
+          .then(([workspaces, tasks]) => {
+            setState((current) => ({ ...current, workspaces, tasks }));
+          })
+          .catch(() => {});
+      }, 5000);
+    }
+
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, [state.workspaces]);
+
+  useEffect(() => {
+    // ── Activity Channel ────────────────────────────────────────────────
+    const activitySocket = connectChannel("activity", (raw) => {
+      console.log("WS EVENT [activity]", raw);
       setState((current) => ({
         ...current,
-        activity: [event, ...current.activity].slice(0, 80),
+        activity: [raw, ...current.activity].slice(0, 80),
       }));
     });
 
-    const agentSocket = connectChannel("agents", (event) => {
+    // ── Agents Channel ──────────────────────────────────────────────────
+    const agentSocket = connectChannel("agents", (raw) => {
+      const { envelope, payload } = unwrapEnvelope(raw);
+      console.log("WS EVENT [agents]", envelope?.event_type || "legacy", payload);
+      if (!isValidAgent(payload)) {
+        console.warn("INVALID AGENT PAYLOAD — rejected", payload);
+        return;
+      }
       setState((current) => ({
         ...current,
-        agents: upsertById(current.agents, event),
+        agents: upsertById(current.agents, payload),
       }));
     });
 
-    const taskSocket = connectChannel("tasks", (event) => {
+    // ── Tasks Channel ───────────────────────────────────────────────────
+    const taskSocket = connectChannel("tasks", (raw) => {
+      const { envelope, payload } = unwrapEnvelope(raw);
+      console.log("WS EVENT [tasks]", envelope?.event_type || "legacy", payload);
+      if (!isValidTask(payload)) {
+        console.warn("INVALID TASK PAYLOAD — rejected", payload);
+        return;
+      }
+      console.log("TASK UPDATE", payload.id, payload.status, payload.title);
       setState((current) => ({
         ...current,
-        tasks: upsertById(current.tasks, event),
+        tasks: upsertById(current.tasks, payload),
       }));
     });
 
-    const workspaceSocket = connectChannel("workspaces", (event) => {
+    // ── Workspaces Channel ──────────────────────────────────────────────
+    const workspaceSocket = connectChannel("workspaces", (raw) => {
+      const { envelope, payload } = unwrapEnvelope(raw);
+      console.log("WS EVENT [workspaces]", envelope?.event_type || "legacy", payload);
+
+      if (payload && payload.deleted) {
+        setState((current) => ({
+          ...current,
+          workspaces: current.workspaces.filter((workspace) => workspace.id !== payload.id),
+        }));
+        return;
+      }
+
+      if (!isValidWorkspace(payload)) {
+        console.warn("INVALID WORKSPACE PAYLOAD — rejected", payload);
+        return;
+      }
       setState((current) => ({
         ...current,
-        workspaces: event.deleted
-          ? current.workspaces.filter((workspace) => workspace.id !== event.id)
-          : upsertById(current.workspaces, event),
+        workspaces: upsertById(current.workspaces, payload),
       }));
     });
 
-    const systemSocket = connectChannel("system", (event) => {
+    // ── System Channel ──────────────────────────────────────────────────
+    const systemSocket = connectChannel("system", (raw) => {
+      console.log("WS EVENT [system]", raw);
       setState((current) => ({
         ...current,
-        systemStatus: event,
+        systemStatus: raw,
       }));
     });
 
-    const buildSocket = connectChannel("build", (event) => {
+    // ── Build Channel ───────────────────────────────────────────────────
+    const buildSocket = connectChannel("build", (raw) => {
+      const { envelope, payload } = unwrapEnvelope(raw);
+      console.log("WS EVENT [build]", envelope?.event_type || "legacy", payload);
       setState((current) => ({
         ...current,
-        buildEvents: [event, ...current.buildEvents].slice(0, 100),
+        buildEvents: [envelope || raw, ...current.buildEvents].slice(0, 100),
       }));
 
-      // Also refresh workspaces when build progress updates
-      if (event.workspace_id) {
-        api.getWorkspaces().then((workspaces) => {
-          setState((current) => ({ ...current, workspaces }));
-        }).catch(() => {});
+      // Refresh workspaces and tasks from the API when build progresses
+      const wsId = payload?.workspace_id;
+      if (wsId) {
+        Promise.all([api.getWorkspaces(), api.getTasks()])
+          .then(([workspaces, tasks]) => {
+            setState((current) => ({ ...current, workspaces, tasks }));
+          })
+          .catch(() => {});
       }
     });
 
@@ -163,7 +253,9 @@ export default function App() {
         <Header title={title} systemStatus={state.systemStatus} />
         <main className="page-content">
           {state.error && <div className="system-alert">{state.error}</div>}
-          <CurrentPage data={state} setData={setState} visibilityMode={state.visibilityMode} />
+          <ErrorBoundary fallbackLabel={title}>
+            <CurrentPage data={state} setData={setState} visibilityMode={state.visibilityMode} />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

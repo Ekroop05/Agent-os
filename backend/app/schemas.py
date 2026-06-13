@@ -61,6 +61,7 @@ class TaskUpdate(BaseModel):
     output_files: list[str] | None = None
     security_status: str | None = None
     security_notes: str | None = None
+    workspace_id: str | None = None
 
 
 class Workspace(BaseModel):

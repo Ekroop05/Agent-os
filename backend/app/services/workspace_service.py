@@ -28,11 +28,16 @@ class WorkspaceService:
         return workspace
 
     def create(self, payload: WorkspaceCreate) -> Workspace:
-        workspace_id = f"workspace-{slugify(payload.name).lower()}"
-        path = payload.path or self.path_for_project(payload.name)
+        # Guard against generic names when a real name might exist
+        name = payload.name.strip()
+        if not name or name.lower() in ("generated project", "untitled project", "project"):
+            name = payload.name  # Keep what was given, but at least it's intentional
+
+        workspace_id = f"workspace-{slugify(name).lower()}"
+        path = payload.path or self.path_for_project(name)
         workspace = Workspace(
             id=workspace_id,
-            name=payload.name,
+            name=name,
             description=payload.description,
             status="Active",
             active_agents=payload.active_agents,
@@ -78,10 +83,14 @@ class WorkspaceService:
 
         total = task_service.count_total(workspace_id)
         completed = task_service.count_completed(workspace_id)
-        progress = int((completed / total) * 100) if total > 0 else 0
+        failed = task_service.count_failed(workspace_id)
+
+        # Count completed + failed as "done" for progress calculation
+        done = completed + failed
+        progress = int((done / total) * 100) if total > 0 else 0
 
         avg_duration = task_service.average_task_duration(workspace_id)
-        remaining_tasks = total - completed
+        remaining_tasks = total - done
         eta_minutes = None
         if avg_duration is not None and remaining_tasks > 0:
             eta_minutes = round((avg_duration * remaining_tasks) / 60, 1)

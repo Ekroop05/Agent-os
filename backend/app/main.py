@@ -39,8 +39,35 @@ import app.mcp.task_mcp
 import app.mcp.file_mcp
 import app.mcp.terminal_mcp
 import app.mcp.git_mcp
+from app.services.execution_logger import execution_logger
 
-app = FastAPI(title="Agent OS API", version="0.5.0")
+app = FastAPI(title="Agent OS API", version="0.6.0")
+
+
+# ── Task Routing ──────────────────────────────────────────────────────────
+
+_HEAD_KEYWORDS = ["scope", "define", "plan", "design", "architecture", "document", "research"]
+_BUILDER_KEYWORDS = ["build", "implement", "create", "frontend", "backend", "feature",
+                     "component", "page", "api", "database", "setup", "shell", "scaffold"]
+_SECURITY_KEYWORDS = ["test", "review", "security", "integration", "deploy", "polish",
+                      "validate", "audit", "performance", "qa"]
+
+
+def _route_task_to_agent(title: str) -> str:
+    """Route a task to the correct agent based on its title keywords."""
+    title_lower = title.lower()
+    builder_score = sum(1 for kw in _BUILDER_KEYWORDS if kw in title_lower)
+    security_score = sum(1 for kw in _SECURITY_KEYWORDS if kw in title_lower)
+    head_score = sum(1 for kw in _HEAD_KEYWORDS if kw in title_lower)
+
+    if builder_score > security_score and builder_score > head_score:
+        return "Builder Agent"
+    if security_score > builder_score and security_score > head_score:
+        return "Security Agent"
+    if head_score > 0:
+        return "Head Agent"
+    # Default: anything that looks like implementation goes to Builder
+    return "Builder Agent"
 
 app.add_middleware(
     CORSMiddleware,
@@ -198,11 +225,12 @@ async def approve_architecture(payload: ArchitectApprovalRequest):
 
     tasks = []
     for item in architecture.get("task_breakdown", []):
+        task_title = item.get("title", "Architecture task")
         task = task_service.create(
             TaskCreate(
-                title=item.get("title", "Architecture task"),
+                title=task_title,
                 description=item.get("description", "Generated from approved architecture."),
-                assigned_agent="Head Agent",
+                assigned_agent=_route_task_to_agent(task_title),
                 priority=item.get("priority", "Medium"),
                 workspace_id=workspace.id,
             )
@@ -296,6 +324,13 @@ async def execute_mcp(payload: MCPExecuteRequest):
         tool_name=payload.tool_name,
         params=payload.params,
     )
+
+
+# ── Logs Endpoint ─────────────────────────────────────────────────────────
+
+@app.get("/logs/{workspace_id}")
+def get_logs(workspace_id: str, agent: str | None = None, limit: int = 100):
+    return execution_logger.read_logs(workspace_id, agent_filter=agent, limit=limit)
 
 
 # ── WebSocket Channels ───────────────────────────────────────────────────

@@ -2,10 +2,15 @@ import { useState } from "react";
 import { api } from "../services/api";
 
 export default function Workspaces({ data, setData }) {
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(data.workspaces[0]?.id);
+  const workspaces = data?.workspaces || [];
+  const tasks = data?.tasks || [];
+  const agents = data?.agents || [];
+  const activity = data?.activity || [];
+
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(workspaces[0]?.id);
   const [draft, setDraft] = useState({ name: "", description: "", active_agents: 1 });
-  const effectiveWorkspaceId = selectedWorkspaceId || data.workspaces[0]?.id;
-  const workspace = data.workspaces.find((item) => item.id === effectiveWorkspaceId) || data.workspaces[0];
+  const effectiveWorkspaceId = selectedWorkspaceId || workspaces[0]?.id;
+  const workspace = workspaces.find((item) => item.id === effectiveWorkspaceId) || workspaces[0];
 
   async function createWorkspace(event) {
     event.preventDefault();
@@ -24,8 +29,10 @@ export default function Workspaces({ data, setData }) {
     setSelectedWorkspaceId(null);
   }
 
-  const relatedTasks = data.tasks.filter((task) => task.status !== "Completed");
-  const timeline = data.activity.filter((event) => event.type.startsWith("WORKSPACE_") || event.source.includes("Workspace"));
+  const relatedTasks = tasks.filter((task) => task && task.status && task.status !== "Completed");
+  const timeline = activity.filter(
+    (event) => event && ((event.type || "").startsWith("WORKSPACE_") || (event.source || "").includes("Workspace"))
+  );
 
   return (
     <div className="workspace-page">
@@ -52,27 +59,30 @@ export default function Workspaces({ data, setData }) {
       </form>
 
       <section className="workspace-card-grid">
-        {data.workspaces.map((item) => (
-          <button
-            className="workspace-card"
-            key={item.id}
-            type="button"
-            onClick={() => setSelectedWorkspaceId(item.id)}
-          >
-            <span className="status-pill active">{item.status}</span>
-            <h3>{item.name}</h3>
-            <p>{item.active_agents} agents / {item.task_count} tasks</p>
-            <p>{item.path}</p>
-            <small>Created {item.created_at}</small>
-          </button>
-        ))}
+        {workspaces.map((item) => {
+          if (!item || !item.id) return null;
+          return (
+            <button
+              className="workspace-card"
+              key={item.id}
+              type="button"
+              onClick={() => setSelectedWorkspaceId(item.id)}
+            >
+              <span className="status-pill active">{item.status || "Unknown"}</span>
+              <h3>{item.name || "Unnamed"}</h3>
+              <p>{item.active_agents ?? 0} agents / {item.task_count ?? 0} tasks</p>
+              <p>{item.path || "—"}</p>
+              <small>Created {item.created_at || "—"}</small>
+            </button>
+          );
+        })}
       </section>
 
       {workspace && (
         <section className="detail-panel">
           <div className="section-heading">
-            <h2>{workspace.name}</h2>
-            <span>{workspace.status}</span>
+            <h2>{workspace.name || "Unnamed"}</h2>
+            <span>{workspace.status || "Unknown"}</span>
           </div>
           <div className="agent-actions">
             <button type="button" onClick={() => setSelectedWorkspaceId(workspace.id)}>Open Workspace</button>
@@ -80,10 +90,10 @@ export default function Workspaces({ data, setData }) {
           </div>
 
           <div className="detail-grid">
-            <Detail title="Workspace Metadata" items={[workspace.description, workspace.path, `Created ${workspace.created_at}`]} />
-            <Detail title="Active Agents" items={data.agents.filter((agent) => agent.status === "Running").map((agent) => agent.name)} />
-            <Detail title="Assigned Tasks" items={relatedTasks.map((task) => task.title)} />
-            <Detail title="Activity Timeline" items={timeline.length ? timeline.map((event) => event.message) : ["No workspace events yet"]} />
+            <Detail title="Workspace Metadata" items={[workspace.description || "—", workspace.path || "—", `Created ${workspace.created_at || "—"}`]} />
+            <Detail title="Active Agents" items={agents.filter((agent) => agent && agent.status === "Running").map((agent) => agent.name || "Unnamed")} />
+            <Detail title="Assigned Tasks" items={relatedTasks.map((task) => task.title || "Untitled")} />
+            <Detail title="Activity Timeline" items={timeline.length ? timeline.map((event) => event.message || "Event") : ["No workspace events yet"]} />
           </div>
         </section>
       )}
@@ -92,10 +102,11 @@ export default function Workspaces({ data, setData }) {
 }
 
 function Detail({ title, items }) {
+  const safeItems = (items || []).filter((item) => item != null);
   return (
     <div className="detail-block">
       <h3>{title}</h3>
-      {items.length ? items.map((item) => <p key={item}>{item}</p>) : <p>None</p>}
+      {safeItems.length ? safeItems.map((item) => <p key={item}>{item}</p>) : <p>None</p>}
     </div>
   );
 }

@@ -1,10 +1,15 @@
 import ActivityFeed from "../components/ActivityFeed";
 
 export default function Dashboard({ data }) {
-  const { agents, tasks, workspaces, activity, systemStatus } = data;
-  const activeAgents = systemStatus?.active_agents ?? agents.filter((agent) => agent.status === "Running").length;
-  const activeTasks = systemStatus?.active_tasks ?? tasks.filter((task) => ["Running", "Reviewing"].includes(task.status)).length;
-  const activeWorkspaces = systemStatus?.active_workspaces ?? workspaces.filter((workspace) => workspace.status === "Active").length;
+  const agents = data?.agents || [];
+  const tasks = data?.tasks || [];
+  const workspaces = data?.workspaces || [];
+  const activity = data?.activity || [];
+  const systemStatus = data?.systemStatus;
+
+  const activeAgents = systemStatus?.active_agents ?? agents.filter((agent) => agent && agent.status === "Running").length;
+  const activeTasks = systemStatus?.active_tasks ?? tasks.filter((task) => task && task.status && ["Running", "Reviewing"].includes(task.status)).length;
+  const activeWorkspaces = systemStatus?.active_workspaces ?? workspaces.filter((workspace) => workspace && workspace.status === "Active").length;
 
   return (
     <div className="dashboard-grid">
@@ -24,9 +29,9 @@ export default function Dashboard({ data }) {
           </div>
           <div className="sandbox-list">
             {workspaces.length ? workspaces.slice(0, 5).map((workspace) => (
-              <div className="state-row" key={workspace.id}>
-                <span>{workspace.name}</span>
-                <strong>{workspace.path}</strong>
+              <div className="state-row" key={workspace?.id || Math.random()}>
+                <span>{workspace?.name || "Unnamed"}</span>
+                <strong>{workspace?.path || "—"}</strong>
               </div>
             )) : <p className="panel-copy">No approved workspaces yet.</p>}
           </div>
@@ -40,7 +45,7 @@ function Stat({ label, value }) {
   return (
     <article className="stat-card">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>{value ?? 0}</strong>
     </article>
   );
 }

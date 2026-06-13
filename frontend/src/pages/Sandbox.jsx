@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import ErrorBoundary from "../components/ErrorBoundary";
 import { api } from "../services/api";
 
 const STATUS_COLORS = {
@@ -9,13 +10,26 @@ const STATUS_COLORS = {
   Failed: { bg: "rgba(248, 113, 113, 0.2)", color: "#fca5a5", icon: "❌" },
 };
 
+const TASK_STATUS_ICON = {
+  Pending: { icon: "○", color: "#94a3b8" },
+  Assigned: { icon: "◎", color: "#7dd3fc" },
+  Running: { icon: "▶", color: "#c4b5fd" },
+  Reviewing: { icon: "🔍", color: "#fde68a" },
+  Completed: { icon: "✓", color: "#86efac" },
+  Failed: { icon: "✗", color: "#fca5a5" },
+  Blocked: { icon: "⊘", color: "#fb923c" },
+};
+
+const DEFAULT_STATUS_STYLE = { bg: "rgba(148, 163, 184, 0.15)", color: "#94a3b8", icon: "○" };
+const DEFAULT_TASK_STYLE = { icon: "○", color: "#94a3b8" };
+
 export default function Sandbox({ data, setData, visibilityMode }) {
-  const [draftRoot, setDraftRoot] = useState(data.sandbox?.project_root || "D:/Projects");
+  const [draftRoot, setDraftRoot] = useState(data?.sandbox?.project_root || "D:/Projects");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setDraftRoot(data.sandbox?.project_root || "D:/Projects");
-  }, [data.sandbox?.project_root]);
+    setDraftRoot(data?.sandbox?.project_root || "D:/Projects");
+  }, [data?.sandbox?.project_root]);
 
   async function saveRoot(event) {
     event.preventDefault();
@@ -28,21 +42,22 @@ export default function Sandbox({ data, setData, visibilityMode }) {
     }
   }
 
-  const sandbox = data.sandbox || { project_root: "D:/Projects", projects: [], workspace_mappings: [] };
-  const workspaces = data.workspaces || [];
-  const buildEvents = data.buildEvents || [];
+  const sandbox = data?.sandbox || { project_root: "D:/Projects", projects: [], workspace_mappings: [] };
+  const workspaces = data?.workspaces || [];
+  const buildEvents = data?.buildEvents || [];
+  const tasks = data?.tasks || [];
   const isDeveloper = visibilityMode === "Developer";
 
   // Group build events by workspace
   function eventsForWorkspace(workspaceId) {
     return buildEvents
-      .filter((e) => e.workspace_id === workspaceId)
+      .filter((e) => e && (e.workspace_id === workspaceId || (e.payload && e.payload.workspace_id === workspaceId)))
       .slice(0, 15);
   }
 
-  // Get tasks for a workspace
+  // Get tasks for a workspace — filter only valid task objects
   function tasksForWorkspace(workspaceId) {
-    return (data.tasks || []).filter((t) => t.workspace_id === workspaceId);
+    return tasks.filter((t) => t && t.id && t.status && t.workspace_id === workspaceId);
   }
 
   return (
@@ -79,161 +94,188 @@ export default function Sandbox({ data, setData, visibilityMode }) {
       ) : (
         <div className="build-cards-grid">
           {workspaces.map((ws) => {
-            const statusStyle = STATUS_COLORS[ws.build_status] || STATUS_COLORS.Planning;
+            if (!ws || !ws.id) return null;
+
+            const buildStatus = ws.build_status || "Planning";
+            const statusStyle = STATUS_COLORS[buildStatus] || DEFAULT_STATUS_STYLE;
             const wsTasks = tasksForWorkspace(ws.id);
             const completedTasks = wsTasks.filter((t) => t.status === "Completed").length;
+            const failedTasks = wsTasks.filter((t) => t.status === "Failed").length;
             const totalTasks = wsTasks.length || ws.task_count || 0;
-            const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : (ws.progress || 0);
+            const doneTasks = completedTasks + failedTasks;
+            const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : (ws.progress || 0);
             const wsEvents = eventsForWorkspace(ws.id);
 
             return (
-              <div className="build-card" key={ws.id}>
-                {/* Card Header */}
-                <div className="build-card-header">
-                  <div className="build-card-title">
-                    <h3>{ws.name}</h3>
-                    <span
-                      className="build-status-badge"
-                      style={{ background: statusStyle.bg, color: statusStyle.color }}
-                    >
-                      {statusStyle.icon} {ws.build_status || "Planning"}
-                    </span>
-                  </div>
-                  <p className="build-card-path">{ws.path}</p>
-                </div>
-
-                {/* Progress Ring + Stats */}
-                <div className="build-progress-section">
-                  <div className="build-progress-ring-container">
-                    <svg className="build-progress-ring" viewBox="0 0 120 120">
-                      <circle
-                        className="progress-ring-bg"
-                        cx="60" cy="60" r="52"
-                        fill="none" stroke="rgba(148,163,184,0.12)" strokeWidth="8"
-                      />
-                      <circle
-                        className="progress-ring-fill"
-                        cx="60" cy="60" r="52"
-                        fill="none"
-                        stroke={statusStyle.color}
-                        strokeWidth="8"
-                        strokeLinecap="round"
-                        strokeDasharray={`${progress * 3.267} 326.7`}
-                        transform="rotate(-90 60 60)"
-                      />
-                    </svg>
-                    <div className="progress-ring-label">
-                      <strong>{progress}%</strong>
-                      <span>Progress</span>
+              <ErrorBoundary fallbackLabel={`Build card: ${ws.name || ws.id}`} key={ws.id}>
+                <div className="build-card">
+                  {/* Card Header */}
+                  <div className="build-card-header">
+                    <div className="build-card-title">
+                      <h3>{ws.name || "Unnamed Workspace"}</h3>
+                      <span
+                        className="build-status-badge"
+                        style={{ background: statusStyle.bg, color: statusStyle.color }}
+                      >
+                        {statusStyle.icon} {buildStatus}
+                      </span>
                     </div>
+                    <p className="build-card-path">{ws.path || "—"}</p>
                   </div>
 
-                  <div className="build-stats">
-                    <div className="build-stat">
-                      <span className="build-stat-label">Tasks</span>
-                      <strong>{completedTasks}/{totalTasks}</strong>
-                    </div>
-                    <div className="build-stat">
-                      <span className="build-stat-label">ETA</span>
-                      <strong>
-                        {ws.estimated_completion_minutes
-                          ? `${ws.estimated_completion_minutes} min`
-                          : progress >= 100 ? "Done" : "Calculating..."}
-                      </strong>
-                    </div>
-                    <div className="build-stat">
-                      <span className="build-stat-label">Current Agent</span>
-                      <strong className="build-agent-name">
-                        {ws.current_agent || "—"}
-                      </strong>
-                    </div>
-                    <div className="build-stat">
-                      <span className="build-stat-label">Current Task</span>
-                      <strong>{ws.current_task_title || "—"}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Linear Progress Bar */}
-                <div className="build-linear-progress">
-                  <div
-                    className="build-linear-fill"
-                    style={{
-                      width: `${progress}%`,
-                      background: `linear-gradient(90deg, ${statusStyle.color}88, ${statusStyle.color})`,
-                    }}
-                  />
-                </div>
-
-                {/* Task List (Developer Mode) */}
-                {isDeveloper && wsTasks.length > 0 && (
-                  <div className="build-task-list">
-                    <h4>Tasks</h4>
-                    {wsTasks.map((task) => (
-                      <div className="build-task-row" key={task.id}>
-                        <span className={`build-task-status ${task.status.toLowerCase()}`}>
-                          {task.status === "Completed" ? "✓" : task.status === "Running" ? "▶" : task.status === "Failed" ? "✗" : "○"}
-                        </span>
-                        <span className="build-task-title">{task.title}</span>
-                        {task.security_status && task.security_status !== "Pending" && (
-                          <span className={`build-security-badge ${task.security_status.toLowerCase()}`}>
-                            {task.security_status}
-                          </span>
-                        )}
+                  {/* Progress Ring + Stats */}
+                  <div className="build-progress-section">
+                    <div className="build-progress-ring-container">
+                      <svg className="build-progress-ring" viewBox="0 0 120 120">
+                        <circle
+                          className="progress-ring-bg"
+                          cx="60" cy="60" r="52"
+                          fill="none" stroke="rgba(148,163,184,0.12)" strokeWidth="8"
+                        />
+                        <circle
+                          className="progress-ring-fill"
+                          cx="60" cy="60" r="52"
+                          fill="none"
+                          stroke={statusStyle.color}
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                          strokeDasharray={`${progress * 3.267} 326.7`}
+                          transform="rotate(-90 60 60)"
+                        />
+                      </svg>
+                      <div className="progress-ring-label">
+                        <strong>{progress}%</strong>
+                        <span>Progress</span>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
 
-                {/* Live Activity Stream */}
-                {isDeveloper && wsEvents.length > 0 && (
-                  <div className="build-activity-stream">
-                    <h4>Live Activity</h4>
-                    <div className="build-activity-list">
-                      {wsEvents.map((event, index) => (
-                        <div className="build-activity-item" key={index}>
-                          <span className={`activity-dot ${event.approved !== undefined ? (event.approved ? 'success' : 'warning') : 'info'}`} />
-                          <span className="build-activity-text">
-                            {event.title
-                              ? `${event.title} — ${event.approved !== undefined ? (event.approved ? "Approved" : "Rejected") : ""}`
-                              : JSON.stringify(event).slice(0, 80)
-                            }
-                          </span>
+                    <div className="build-stats">
+                      <div className="build-stat">
+                        <span className="build-stat-label">Tasks</span>
+                        <strong>{completedTasks}/{totalTasks}</strong>
+                      </div>
+                      {failedTasks > 0 && (
+                        <div className="build-stat">
+                          <span className="build-stat-label">Failed</span>
+                          <strong style={{ color: "#fca5a5" }}>{failedTasks}</strong>
                         </div>
-                      ))}
+                      )}
+                      <div className="build-stat">
+                        <span className="build-stat-label">ETA</span>
+                        <strong>
+                          {ws.estimated_completion_minutes
+                            ? `${ws.estimated_completion_minutes} min`
+                            : progress >= 100 ? "Done" : "Calculating..."}
+                        </strong>
+                      </div>
+                      <div className="build-stat">
+                        <span className="build-stat-label">Current Agent</span>
+                        <strong className="build-agent-name">
+                          {ws.current_agent || "—"}
+                        </strong>
+                      </div>
+                      <div className="build-stat">
+                        <span className="build-stat-label">Current Task</span>
+                        <strong>{ws.current_task_title || "—"}</strong>
+                      </div>
                     </div>
                   </div>
-                )}
 
-                {/* Executive Mode - Simplified View */}
-                {!isDeveloper && (
-                  <div className="build-executive-summary">
-                    <div className="executive-phase-bar">
-                      {["Planning", "Building", "Reviewing", "Completed"].map((phase) => (
-                        <div
-                          key={phase}
-                          className={`executive-phase ${
-                            ws.build_status === phase ? "active" :
-                            ["Planning", "Building", "Reviewing", "Completed"].indexOf(phase) <
-                            ["Planning", "Building", "Reviewing", "Completed"].indexOf(ws.build_status || "Planning")
-                              ? "done" : ""
-                          }`}
-                        >
-                          <div className="phase-dot" />
-                          <span>{phase}</span>
-                        </div>
-                      ))}
-                    </div>
+                  {/* Linear Progress Bar */}
+                  <div className="build-linear-progress">
+                    <div
+                      className="build-linear-fill"
+                      style={{
+                        width: `${progress}%`,
+                        background: `linear-gradient(90deg, ${statusStyle.color}88, ${statusStyle.color})`,
+                      }}
+                    />
                   </div>
-                )}
-              </div>
+
+                  {/* Task List (Developer Mode) */}
+                  {isDeveloper && wsTasks.length > 0 && (
+                    <div className="build-task-list">
+                      <h4>Tasks</h4>
+                      {wsTasks.map((task) => {
+                        const taskStatus = task.status || "Pending";
+                        const taskStyle = TASK_STATUS_ICON[taskStatus] || DEFAULT_TASK_STYLE;
+                        return (
+                          <div className="build-task-row" key={task.id}>
+                            <span
+                              className={`build-task-status ${taskStatus.toLowerCase()}`}
+                              style={{ color: taskStyle.color }}
+                            >
+                              {taskStyle.icon}
+                            </span>
+                            <span className="build-task-title">{task.title || "Untitled"}</span>
+                            <span className="build-task-agent">{task.assigned_agent || "—"}</span>
+                            {task.security_status && task.security_status !== "Pending" && (
+                              <span className={`build-security-badge ${(task.security_status || "").toLowerCase()}`}>
+                                {task.security_status}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Live Activity Stream */}
+                  {isDeveloper && wsEvents.length > 0 && (
+                    <div className="build-activity-stream">
+                      <h4>Live Activity</h4>
+                      <div className="build-activity-list">
+                        {wsEvents.map((event, index) => {
+                          const eventPayload = event?.payload || event || {};
+                          const eventMessage = event?.message || eventPayload?.message || "";
+                          const eventTitle = eventPayload?.title || "";
+                          const approved = eventPayload?.approved;
+                          return (
+                            <div className="build-activity-item" key={index}>
+                              <span className={`activity-dot ${approved !== undefined ? (approved ? 'success' : 'warning') : 'info'}`} />
+                              <span className="build-activity-text">
+                                {eventTitle
+                                  ? `${eventTitle} — ${approved !== undefined ? (approved ? "Approved" : "Rejected") : ""}`
+                                  : eventMessage || "Build event"
+                                }
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Executive Mode - Simplified View */}
+                  {!isDeveloper && (
+                    <div className="build-executive-summary">
+                      <div className="executive-phase-bar">
+                        {["Planning", "Building", "Reviewing", "Completed"].map((phase) => (
+                          <div
+                            key={phase}
+                            className={`executive-phase ${
+                              buildStatus === phase ? "active" :
+                              ["Planning", "Building", "Reviewing", "Completed"].indexOf(phase) <
+                              ["Planning", "Building", "Reviewing", "Completed"].indexOf(buildStatus)
+                                ? "done" : ""
+                            }`}
+                          >
+                            <div className="phase-dot" />
+                            <span>{phase}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ErrorBoundary>
             );
           })}
         </div>
       )}
 
       {/* ── Existing Projects on Disk ─────────────── */}
-      {sandbox.projects.length > 0 && (
+      {(sandbox.projects || []).length > 0 && (
         <section className="panel">
           <div className="section-heading">
             <h2>Projects on Disk</h2>
@@ -241,9 +283,9 @@ export default function Sandbox({ data, setData, visibilityMode }) {
           </div>
           <div className="sandbox-list">
             {sandbox.projects.map((project) => (
-              <div className="state-row" key={project.path}>
-                <span>{project.name}</span>
-                <strong>{project.path}</strong>
+              <div className="state-row" key={project?.path || Math.random()}>
+                <span>{project?.name || "Unknown"}</span>
+                <strong>{project?.path || "—"}</strong>
               </div>
             ))}
           </div>

@@ -40,8 +40,10 @@ class SecurityService:
         from app.services.task_service import task_service
         from app.services.workspace_service import workspace_service
         from app.services.agent_service import agent_service
+        from app.services.execution_logger import execution_logger
 
         task = task_service.get(task_id)
+        workspace = workspace_service.get(workspace_id)
 
         # Update agent status
         agent_service.update("security-agent", status="Running", current_task=f"Reviewing: {task.title}")
@@ -51,6 +53,8 @@ class SecurityService:
 
         # Mark task as under review
         task_service.update(TaskUpdate(id=task_id, security_status="Reviewing"))
+
+        execution_logger.log(workspace.path, "Security Agent", "REVIEW_STARTED", task_id, task.title)
 
         await event_bus.publish(Event(
             type="SECURITY_REVIEW_STARTED",
@@ -112,6 +116,12 @@ class SecurityService:
                 "issues": issues,
             },
         ))
+
+        execution_logger.log(
+            workspace.path, "Security Agent",
+            "REVIEW_APPROVED" if approved else "REVIEW_REJECTED",
+            task_id, notes
+        )
 
         # Update agent to idle
         agent_service.update("security-agent", current_task="Monitoring review queue")
