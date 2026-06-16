@@ -182,6 +182,12 @@ export default function Tasks({ data, setData }) {
                   {task.security_status}
                 </span>
               </p>
+              {/* P5: Show warning for impossible states */}
+              {task.status === "Failed" && task.security_status === "Approved" && (
+                <p className="security-notes" style={{ color: "#fca5a5" }}>
+                  ⚠ Invalid state: Failed tasks cannot be Approved
+                </p>
+              )}
               {task.security_notes && <p className="security-notes">{task.security_notes}</p>}
             </div>
           )}

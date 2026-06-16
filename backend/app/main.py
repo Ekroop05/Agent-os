@@ -11,8 +11,12 @@ from app.schemas import (
     ArchitectChatRequest,
     ArchitectChatResponse,
     BuildProgress,
+    BuildReport,
     BuildStartRequest,
     Event,
+    Job,
+    RuntimeEntry,
+    RuntimeStopRequest,
     SandboxSettings,
     SandboxState,
     SystemStatus,
@@ -20,14 +24,18 @@ from app.schemas import (
     TaskCreate,
     TaskUpdate,
     Workspace,
+    WorkspaceArchiveEntry,
     WorkspaceCreate,
     MCPExecuteRequest,
 )
 from app.services.activity_service import activity_service
 from app.services.agent_service import agent_service
-from app.services.architect_service import architect_service
+from app.services.architect_service import architect_service, project_state_manager
 from app.services.build_orchestrator import build_orchestrator
+from app.services.job_manager import job_manager
+from app.services.runtime_manager import runtime_manager
 from app.services.sandbox_service import sandbox_service
+from app.services.spec_engine import spec_engine
 from app.services.system_service import system_service
 from app.services.task_service import task_service
 from app.services.workspace_service import workspace_service
@@ -41,7 +49,11 @@ import app.mcp.terminal_mcp
 import app.mcp.git_mcp
 from app.services.execution_logger import execution_logger
 
-app = FastAPI(title="Agent OS API", version="0.6.0")
+import logging
+
+logger = logging.getLogger("agent_os")
+
+app = FastAPI(title="Agent OS API", version="0.7.0")
 
 
 # ── Task Routing ──────────────────────────────────────────────────────────
@@ -76,6 +88,33 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Startup / Shutdown Lifecycle ─────────────────────────────────────────
+
+@app.on_event("startup")
+async def startup_lifecycle():
+    """Sprint 4.5: On startup, recover interrupted jobs, clean orphan
+    processes, and start the health monitor."""
+    recovered = job_manager.recover_jobs()
+    if recovered:
+        logger.info("Recovered %d interrupted jobs", recovered)
+
+    cleaned = runtime_manager.cleanup_orphans()
+    if cleaned:
+        logger.info("Cleaned %d orphaned runtime entries", cleaned)
+
+    await runtime_manager.start_health_monitor()
+    logger.info("Agent OS backend started (Sprint 4.5)")
+
+
+@app.on_event("shutdown")
+async def shutdown_lifecycle():
+    """Graceful shutdown: stop health monitor."""
+    stopped = runtime_manager.stop_all()
+    if stopped:
+        logger.info("Stopped %d runtimes on shutdown", stopped)
+    logger.info("Agent OS backend shutting down")
 
 
 # ── Agent Endpoints ───────────────────────────────────────────────────────
@@ -164,6 +203,11 @@ def get_workspaces():
     return workspace_service.list()
 
 
+@app.get("/workspaces/archive", response_model=list[WorkspaceArchiveEntry])
+def get_workspace_archive():
+    return workspace_service.list_archive()
+
+
 @app.get("/workspaces/{workspace_id}", response_model=Workspace)
 def get_workspace(workspace_id: str):
     return workspace_service.get(workspace_id)
@@ -222,14 +266,27 @@ async def approve_architecture(payload: ArchitectApprovalRequest):
             payload=workspace.model_dump(),
         )
     )
+    # Sprint 4: Ensure spec exists and write it to disk
+    spec = state.get("spec")
+    if not spec:
+        spec = spec_engine.generate_spec(state)
+        state["spec"] = spec
+        
+    # Write spec to the workspace
+    spec_engine.write_spec(workspace.path, spec)
 
     tasks = []
     for item in architecture.get("task_breakdown", []):
         task_title = item.get("title", "Architecture task")
+        base_desc = item.get("description", "Generated from approved architecture.")
+        
+        # Sprint 4: Enrich task description with project context
+        enriched_desc = spec_engine.enrich_task_description(task_title, base_desc, spec)
+        
         task = task_service.create(
             TaskCreate(
                 title=task_title,
-                description=item.get("description", "Generated from approved architecture."),
+                description=enriched_desc,
                 assigned_agent=_route_task_to_agent(task_title),
                 priority=item.get("priority", "Medium"),
                 workspace_id=workspace.id,
@@ -292,6 +349,14 @@ def cancel_build(workspace_id: str):
     return {"ok": cancelled, "workspace_id": workspace_id}
 
 
+@app.get("/build/report/{workspace_id}")
+def get_build_report(workspace_id: str):
+    report = workspace_service.get_build_report(workspace_id)
+    if not report:
+        return {"error": "No build report found", "workspace_id": workspace_id}
+    return report
+
+
 # ── Activity, Sandbox, System Endpoints ───────────────────────────────────
 
 @app.get("/activity")
@@ -333,6 +398,61 @@ def get_logs(workspace_id: str, agent: str | None = None, limit: int = 100):
     return execution_logger.read_logs(workspace_id, agent_filter=agent, limit=limit)
 
 
+# ── Sprint 4.5: Job Endpoints ────────────────────────────────────────────
+
+@app.get("/jobs", response_model=list[Job])
+def get_jobs():
+    return job_manager.list_jobs()
+
+
+@app.get("/jobs/{job_id}", response_model=Job)
+def get_job(job_id: str):
+    job = job_manager.get_job(job_id)
+    if not job:
+        return {"error": "Job not found"}
+    return job
+
+
+@app.post("/jobs/{job_id}/cancel")
+def cancel_job(job_id: str):
+    cancelled = job_manager.cancel_job(job_id)
+    return {"ok": cancelled, "job_id": job_id}
+
+
+# ── Sprint 4.5: Runtime Endpoints ────────────────────────────────────────
+
+@app.get("/runtimes", response_model=list[RuntimeEntry])
+def get_runtimes():
+    return runtime_manager.list_runtimes()
+
+
+@app.get("/runtimes/{workspace_id}")
+def get_runtime(workspace_id: str):
+    health = runtime_manager.check_health(workspace_id)
+    return health
+
+
+@app.post("/runtimes/stop")
+async def stop_runtime(payload: RuntimeStopRequest):
+    stopped = runtime_manager.stop_runtime(payload.workspace_id)
+    if stopped:
+        await event_bus.publish(Event(
+            type="RUNTIME_STOPPED",
+            source="Runtime Manager",
+            message=f"Runtime stopped for workspace {payload.workspace_id}",
+            severity="warning",
+            payload={"workspace_id": payload.workspace_id},
+        ))
+    return {"ok": stopped, "workspace_id": payload.workspace_id}
+
+
+# ── Sprint 4.5: Timeline Endpoint ────────────────────────────────────────
+
+@app.get("/timeline")
+def get_timeline(limit: int = 100):
+    return event_bus.get_timeline(limit)
+
+
 # ── WebSocket Channels ───────────────────────────────────────────────────
 
 @app.websocket("/ws/activity")
@@ -363,6 +483,18 @@ async def system_socket(websocket: WebSocket):
 @app.websocket("/ws/build")
 async def build_socket(websocket: WebSocket):
     await stream_channel("build", websocket, [])
+
+
+@app.websocket("/ws/jobs")
+async def jobs_socket(websocket: WebSocket):
+    """Sprint 4.5: WebSocket channel for job status updates."""
+    await stream_channel("jobs", websocket, [job.model_dump() for job in job_manager.active_jobs()])
+
+
+@app.websocket("/ws/runtimes")
+async def runtimes_socket(websocket: WebSocket):
+    """Sprint 4.5: WebSocket channel for runtime status updates."""
+    await stream_channel("runtimes", websocket, [rt.model_dump() for rt in runtime_manager.list_runtimes()])
 
 
 async def stream_channel(channel: str, websocket: WebSocket, initial_messages: list[dict]):

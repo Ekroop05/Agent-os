@@ -47,6 +47,36 @@ class TaskService:
             if task.workspace_id == workspace_id and task.status == "Running"
         )
 
+    def count_security_approved(self, workspace_id: str) -> int:
+        return sum(
+            1 for task in self.tasks.values()
+            if task.workspace_id == workspace_id and task.security_status == "Approved"
+        )
+
+    def count_security_rejected(self, workspace_id: str) -> int:
+        return sum(
+            1 for task in self.tasks.values()
+            if task.workspace_id == workspace_id and task.security_status == "Rejected"
+        )
+
+    def count_output_files(self, workspace_id: str) -> int:
+        """Count total output files across all tasks in a workspace."""
+        return sum(
+            len(task.output_files)
+            for task in self.tasks.values()
+            if task.workspace_id == workspace_id
+        )
+
+    def get_current_task(self, workspace_id: str) -> 'Task | None':
+        """Return the currently Running task for a workspace.
+
+        If no Running task, returns None (meaning idle/completed).
+        """
+        for task in self.tasks.values():
+            if task.workspace_id == workspace_id and task.status == "Running":
+                return task
+        return None
+
     def average_task_duration(self, workspace_id: str) -> float | None:
         """Average duration in seconds for completed tasks in this workspace."""
         durations = [
@@ -84,6 +114,19 @@ class TaskService:
     def update(self, payload: TaskUpdate) -> Task:
         task = self.get(payload.id)
         changes = payload.model_dump(exclude={"id"}, exclude_none=True)
+
+        # ── Security Validation (P5) ─────────────────────────────────────
+        # Only tasks with status "Completed" can have security_status set to "Approved".
+        # Failed / Blocked / Pending / Running tasks CANNOT be Approved.
+        if changes.get("security_status") == "Approved":
+            effective_status = changes.get("status") or task.status
+            if effective_status != "Completed":
+                # Silently downgrade to Rejected with explanation
+                changes["security_status"] = "Rejected"
+                changes["security_notes"] = (
+                    f"Cannot approve: task status is '{effective_status}', not 'Completed'. "
+                    f"Only completed tasks are eligible for security approval."
+                )
 
         # Auto-set started_at when transitioning to Running
         if changes.get("status") == "Running" and not task.started_at:

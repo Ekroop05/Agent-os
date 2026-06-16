@@ -17,6 +17,9 @@ import re
 
 from fastapi import HTTPException
 
+from app.services.spec_engine import spec_engine
+from app.services.project_name_generator import generate_name, sanitize_name
+
 from app.extractors.requirement_extractor import requirement_extractor
 from app.schemas import ArchitectChatResponse
 from app.services.llm_service import generate_response
@@ -59,6 +62,9 @@ class ArchitectService:
                 state["architecture"] = architecture
                 state["project_name"] = architecture.get("project_name") or state["project_name"] or "Untitled Project"
                 state["architecture_generated"] = True
+                # Sprint 4: Generate project specification
+                state["spec"] = spec_engine.generate_spec(state)
+                state["project_name"] = state["spec"]["project_name"]
                 project_state_manager.recalculate(state)
                 reply = self._format_architecture_reply(architecture)
             else:
@@ -79,6 +85,9 @@ class ArchitectService:
                 state["architecture"] = architecture
                 state["project_name"] = architecture.get("project_name") or state["project_name"] or "Untitled Project"
                 state["architecture_generated"] = True
+                # Sprint 4: Generate project specification
+                state["spec"] = spec_engine.generate_spec(state)
+                state["project_name"] = state["spec"]["project_name"]
                 project_state_manager.recalculate(state)
                 reply = self._format_architecture_reply(architecture)
             else:
@@ -286,46 +295,87 @@ Do NOT wrap the JSON in markdown code fences."""
         return merged
 
     def _fallback_architecture(self, state: dict) -> dict:
-        name = state.get("project_name") or "Generated Project"
+        # Sprint 4: Use project name generator instead of generic names
+        name = state.get("project_name")
         ptype = state.get("project_type") or "Web Application"
+        if not name or sanitize_name(name) == "":
+            name = generate_name(
+                theme=state.get("theme"),
+                project_type=ptype,
+                purpose=state.get("purpose"),
+            )
         features = state.get("core_features") or []
         frontend = state.get("frontend") or "React + Vite"
         backend = state.get("backend")
         database = state.get("database")
 
+        # Sprint 4: Architecture consistency — respect backend/database=False
+        has_backend = backend and backend is not False
+        has_database = database and database is not False
+
         tech = [frontend] if frontend and frontend is not False else ["HTML/CSS/JS"]
-        if backend and backend is not False:
+        if has_backend:
             tech.append(backend)
-        if database and database is not False:
+        if has_database:
             tech.append(database)
 
-        return {
-            "project_name": name,
-            "architecture": f"A modular {ptype.lower()} with a responsive frontend, API layer, and data persistence.",
-            "tech_stack": tech,
-            "major_components": [
+        # Sprint 4: Adjust architecture description and components based on actual requirements
+        if has_backend:
+            arch_desc = f"A modular {ptype.lower()} with a responsive frontend, API layer, and data persistence."
+            components = [
                 "Frontend Application Shell",
                 "API & Service Layer",
                 "Data Model & Storage",
                 "User Interface Components",
                 "Activity & Audit Trail",
-            ],
-            "development_plan": [
+            ]
+            dev_plan = [
                 "Define scope and core workflows",
                 "Design data model and API contracts",
                 "Build frontend shell and core pages",
                 "Implement backend services and integrations",
                 "Testing, polish, and deployment",
-            ],
-            "task_breakdown": [
-                {"title": "Define product scope", "description": f"Document goals, users, and constraints for {name}.", "priority": "High"},
-                {"title": "Design system architecture", "description": "Create the service, data, and interface architecture.", "priority": "High"},
-                {"title": "Build frontend shell", "description": "Implement layout, navigation, and core pages.", "priority": "High"},
-                {"title": "Build backend API", "description": "Implement REST endpoints and business logic.", "priority": "High"},
-                {"title": f"Implement {features[0] if features else 'core features'}", "description": "Build the primary user-facing features.", "priority": "High"},
-                {"title": "Integration testing", "description": "Connect frontend to backend and test all workflows.", "priority": "Medium"},
-                {"title": "Polish and deploy", "description": "Final UI polish, performance optimization, deployment.", "priority": "Medium"},
-            ],
+            ]
+        else:
+            arch_desc = f"A client-side {ptype.lower()} with a rich, responsive frontend and static assets."
+            components = [
+                "Frontend Application Shell",
+                "User Interface Components",
+                "Page Router & Navigation",
+                "Theme & Styling System",
+                "Static Asset Management",
+            ]
+            dev_plan = [
+                "Define scope and core workflows",
+                "Build frontend shell and core pages",
+                "Implement UI components and features",
+                "Testing, polish, and deployment",
+            ]
+
+        # Sprint 4: Build task breakdown — no backend tasks when backend=False
+        tasks = [
+            {"title": "Define product scope", "description": f"Document goals, users, and constraints for {name}.", "priority": "High"},
+            {"title": "Design system architecture", "description": "Create the service, data, and interface architecture.", "priority": "High"},
+            {"title": "Build frontend shell", "description": "Implement layout, navigation, and core pages.", "priority": "High"},
+        ]
+        if has_backend:
+            tasks.append({"title": "Build backend API", "description": "Implement REST endpoints and business logic.", "priority": "High"})
+        tasks.append(
+            {"title": f"Implement {features[0] if features else 'core features'}", "description": "Build the primary user-facing features.", "priority": "High"}
+        )
+        if has_backend:
+            tasks.append({"title": "Integration testing", "description": "Connect frontend to backend and test all workflows.", "priority": "Medium"})
+        tasks.append(
+            {"title": "Polish and deploy", "description": "Final UI polish, performance optimization, deployment.", "priority": "Medium"}
+        )
+
+        return {
+            "project_name": name,
+            "architecture": arch_desc,
+            "tech_stack": tech,
+            "major_components": components,
+            "development_plan": dev_plan,
+            "task_breakdown": tasks,
         }
 
     def _format_architecture_reply(self, arch: dict) -> str:

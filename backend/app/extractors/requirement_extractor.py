@@ -242,17 +242,28 @@ class RequirementExtractor:
 
         # ── Backend ───────────────────────────────────────────────────
         if current_state.get("backend") is None:
-            for pattern, tech in _BACKEND_PATTERNS.items():
-                if pattern in lowered:
-                    updates["backend"] = tech
-                    break
+            # Check for explicit "no backend" signals first
+            if re.search(r"\b(no backend|no server|no api|frontend.?only|client.?side.?only|static.?site|static.?only|purely.?client|no server.?side)\b", lowered):
+                updates["backend"] = False
+            else:
+                for pattern, tech in _BACKEND_PATTERNS.items():
+                    if pattern in lowered:
+                        updates["backend"] = tech
+                        break
 
         # ── Database ──────────────────────────────────────────────────
         if current_state.get("database") is None:
-            for pattern, tech in _DATABASE_PATTERNS.items():
-                if pattern in lowered:
-                    updates["database"] = tech
-                    break
+            # Check for explicit "no database" signals first
+            if re.search(r"\b(no database|no db|no data.?base|no storage|no persistence)\b", lowered):
+                updates["database"] = False
+            # Also infer no database when backend is explicitly false
+            elif updates.get("backend") is False or current_state.get("backend") is False:
+                updates["database"] = False
+            else:
+                for pattern, tech in _DATABASE_PATTERNS.items():
+                    if pattern in lowered:
+                        updates["database"] = tech
+                        break
 
         # ── Authentication ────────────────────────────────────────────
         if current_state.get("authentication") is None:
@@ -299,6 +310,25 @@ class RequirementExtractor:
                     if is_empty:
                         inferred[field] = value
 
+        # -- Project Name Synthesis --
+        # Try to synthesize a name if missing, so it doesn't stay null.
+        if not state.get("project_name") and "project_name" not in inferred:
+            p_type = state.get("project_type") or inferred.get("project_type")
+            p_theme = state.get("theme") or inferred.get("theme")
+            p_purpose = state.get("purpose") or inferred.get("purpose")
+            
+            parts = []
+            if p_theme:
+                parts.append(p_theme.split(" / ")[0])
+            elif p_purpose:
+                parts.append(p_purpose.split(" / ")[0])
+                
+            if p_type:
+                parts.append(p_type)
+                
+            if parts:
+                inferred["project_name"] = " ".join(parts)
+
         return inferred
 
     def is_approval(self, message: str) -> bool:
@@ -309,6 +339,7 @@ class RequirementExtractor:
         """Try to extract a project name from the message."""
         patterns = [
             r"(?:called|named|name it|project name is|project name)\s+[\"']?([A-Za-z0-9][A-Za-z0-9\-\s]{1,40}?)[\"']?(?:\s*[,.]|\s*$)",
+            r"(?:build|create|make)\s+(?:a\s+|an\s+|the\s+)?(?:website|app|application|dashboard|platform|portal|system|tool)\s+for\s+(?:a\s+|an\s+|the\s+)?([A-Za-z0-9\s]+?)(?:\s*[,.]|\s*$)",
             r"(?:build|create|make)\s+(?:a\s+|an\s+|the\s+)?(.+?)(?:\s+(?:website|app|application|dashboard|platform|tool|system|page|site|portal))",
         ]
         for pattern in patterns:

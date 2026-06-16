@@ -14,6 +14,8 @@ import re
 from app.core.event_bus import event_bus
 from app.schemas import Event, SecurityReviewResult, TaskUpdate
 from app.services.llm_service import generate_response
+from app.services.path_security import validate_write_path, SecurityViolationError
+from app.services.command_security import validate_command, CommandBlockedError
 
 SECURITY_MODEL = "qwen2.5-coder:7b"
 
@@ -44,6 +46,31 @@ class SecurityService:
 
         task = task_service.get(task_id)
         workspace = workspace_service.get(workspace_id)
+
+        # ── P5 Guard: Only completed tasks can be reviewed ────────────────
+        if task.status != "Completed":
+            rejection_note = (
+                f"Security review skipped: task status is '{task.status}', not 'Completed'. "
+                f"Only completed tasks are eligible for security review."
+            )
+            task_service.update(TaskUpdate(
+                id=task_id,
+                security_status="Rejected",
+                security_notes=rejection_note,
+            ))
+            await event_bus.publish(Event(
+                type="SECURITY_REJECTED",
+                source="Security Agent",
+                message=f"Security review rejected for non-completed task: {task.title}",
+                severity="warning",
+                payload={"task_id": task_id, "workspace_id": workspace_id, "reason": rejection_note},
+            ))
+            return SecurityReviewResult(
+                task_id=task_id,
+                approved=False,
+                issues=[rejection_note],
+                notes=rejection_note,
+            )
 
         # Update agent status
         agent_service.update("security-agent", status="Running", current_task=f"Reviewing: {task.title}")
@@ -82,6 +109,20 @@ class SecurityService:
         workspace = workspace_service.get(workspace_id)
         structure_issues = self._validate_structure(workspace)
         issues.extend(structure_issues)
+
+        # Check 5: Sprint 4.5 — Validate filesystem access (path isolation)
+        path_issues = self._check_path_isolation(task.output_files, workspace)
+        issues.extend(path_issues)
+
+        # Check 6: Sprint 4.5 — Validate commands in generated scripts
+        command_issues = self._check_generated_commands(task.output_files)
+        issues.extend(command_issues)
+
+        # Check 7: LLM Code Review
+        # Only review if basic checks passed, to save time
+        if len(issues) == 0:
+            llm_issues = await self._llm_code_review(task.output_files)
+            issues.extend(llm_issues)
 
         # Determine result
         approved = len(issues) == 0
@@ -195,6 +236,100 @@ class SecurityService:
         if not os.path.exists(base):
             issues.append(f"Project root missing: {workspace.path}")
 
+        return issues
+
+    # ── Sprint 4.5: Path Isolation Check ──────────────────────────────────
+
+    def _check_path_isolation(self, files: list[str], workspace) -> list[str]:
+        """Verify all output files are inside the workspace boundary."""
+        issues = []
+        for file_path in files:
+            try:
+                validate_write_path(file_path, workspace.path)
+            except SecurityViolationError as e:
+                issues.append(f"Path isolation violation: {file_path} — {e.reason}")
+        return issues
+
+    # ── Sprint 4.5: Command Safety Check ──────────────────────────────────
+
+    def _check_generated_commands(self, files: list[str]) -> list[str]:
+        """Scan generated scripts for dangerous commands."""
+        issues = []
+        command_patterns = [
+            r'os\.system\s*\(["\'](.+?)["\']\)',
+            r'subprocess\.(?:run|call|Popen)\s*\(\[?["\'](.+?)["\']',
+            r'exec\s*\(["\'](.+?)["\']\)',
+        ]
+
+        for file_path in files:
+            native_path = file_path.replace("/", os.sep)
+            if not os.path.exists(native_path) or os.path.isdir(native_path):
+                continue
+            try:
+                with open(native_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                for pattern in command_patterns:
+                    for match in re.finditer(pattern, content):
+                        cmd = match.group(1)
+                        try:
+                            validate_command(cmd)
+                        except CommandBlockedError as e:
+                            issues.append(
+                                f"Dangerous command in {os.path.basename(file_path)}: "
+                                f"{cmd[:40]} — {e.reason}"
+                            )
+            except (UnicodeDecodeError, OSError):
+                pass
+
+        return issues
+
+    async def _llm_code_review(self, files: list[str]) -> list[str]:
+        """Use LLM to review code for missing imports, broken routes, unused components, invalid references."""
+        issues = []
+        file_contents = []
+        for file_path in files:
+            native_path = file_path.replace("/", os.sep)
+            if not os.path.exists(native_path) or os.path.isdir(native_path):
+                continue
+            try:
+                with open(native_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                file_contents.append(f"--- {os.path.basename(file_path)} ---\n{content}")
+            except Exception:
+                pass
+                
+        if not file_contents:
+            return []
+            
+        prompt = f"""You are the Security Agent of Agent OS. Review the following code files for quality and correctness.
+        
+FILES:
+{"\n\n".join(file_contents)}
+
+Inspect for:
+1. Missing imports (using components/functions without importing them)
+2. Broken routes or invalid file references
+3. Syntactical errors or build-breaking issues
+4. Unused components or placeholder assets
+
+Return ONLY valid JSON:
+{{
+  "issues": ["Issue description 1", "Issue description 2"]
+}}
+
+If no issues found, return an empty array for "issues". Do NOT wrap in markdown fences."""
+        try:
+            raw = generate_response(SECURITY_MODEL, prompt)
+            raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+            cleaned = re.sub(r"```(?:json)?\s*", "", raw).replace("```", "")
+            start = cleaned.find("{")
+            end = cleaned.rfind("}")
+            if start != -1 and end != -1:
+                parsed = json.loads(cleaned[start:end + 1])
+                return parsed.get("issues", [])
+        except Exception:
+            pass
+            
         return issues
 
 

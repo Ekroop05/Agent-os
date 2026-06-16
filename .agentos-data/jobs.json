@@ -1,0 +1,41 @@
+{
+  "job-33fb2d01": {
+    "job_id": "job-33fb2d01",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-06-16 18:46:03",
+    "updated_at": "2026-06-16 18:53:22",
+    "completed_at": "2026-06-16 18:53:22",
+    "workspace_id": "workspace-vibe-central",
+    "conversation_id": null,
+    "error": null
+  },
+  "job-2572f41c": {
+    "job_id": "job-2572f41c",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-06-16 19:08:06",
+    "updated_at": "2026-06-16 19:20:34",
+    "completed_at": "2026-06-16 19:20:34",
+    "workspace_id": "workspace-midnight-brew",
+    "conversation_id": null,
+    "error": null
+  },
+  "job-0c1c16be": {
+    "job_id": "job-0c1c16be",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-06-16 19:30:03",
+    "updated_at": "2026-06-16 19:49:39",
+    "completed_at": "2026-06-16 19:49:39",
+    "workspace_id": "workspace-full-stack-personal-task-manager",
+    "conversation_id": null,
+    "error": null
+  }
+}

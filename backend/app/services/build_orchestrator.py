@@ -17,16 +17,23 @@ Task State Machine:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import os
 from datetime import datetime
 
 from app.core.event_bus import event_bus
-from app.schemas import BuildProgress, Event, TaskCreate, TaskUpdate
+from app.schemas import BuildProgress, BuildReport, Event, TaskCreate, TaskUpdate
 from app.services.time_service import now_label
 
 logger = logging.getLogger("build_orchestrator")
 
 MAX_RETRIES = 2
+
+# Lazy import to avoid circular dependencies
+def _get_job_manager():
+    from app.services.job_manager import job_manager
+    return job_manager
 
 
 class BuildOrchestrator:
@@ -37,7 +44,12 @@ class BuildOrchestrator:
         self.build_states: dict[str, dict] = {}
 
     async def start_pipeline(self, workspace_id: str, architecture: dict | None = None) -> None:
-        """Entry point: start building a workspace. Runs as background task."""
+        """Entry point: start building a workspace.
+
+        Creates a Job via job_manager so the build persists independently
+        of UI state — the user can navigate away, refresh, or close the
+        browser and the build continues.
+        """
         if workspace_id in self.active_builds:
             return  # Already building
 
@@ -45,18 +57,40 @@ class BuildOrchestrator:
             "status": "Building",
             "started_at": datetime.now(),
             "last_activity": now_label(),
-            "architecture": architecture,  # Store for builder access
+            "architecture": architecture,
         }
 
-        task = asyncio.create_task(self._run_pipeline(workspace_id, architecture))
-        self.active_builds[workspace_id] = task
+        # Create a tracked Job instead of a raw asyncio task
+        jm = _get_job_manager()
+        job = jm.create_job(
+            agent="Builder",
+            workspace_id=workspace_id,
+        )
+        self.build_states[workspace_id]["job_id"] = job.job_id
+
+        # Start via job manager — wraps our coroutine with lifecycle tracking
+        await jm.start_job(
+            job.job_id,
+            self._run_pipeline_job,
+            workspace_id,
+            architecture,
+        )
+
+        # Keep reference for cancellation
+        task = jm._tasks.get(job.job_id)
+        if task:
+            self.active_builds[workspace_id] = task
 
     def get_architecture(self, workspace_id: str) -> dict | None:
         """Retrieve stored architecture for a workspace build."""
         state = self.build_states.get(workspace_id, {})
         return state.get("architecture")
 
-    async def _run_pipeline(self, workspace_id: str, architecture: dict | None) -> None:
+    async def _run_pipeline_job(self, job_id: str, workspace_id: str, architecture: dict | None) -> None:
+        """Job-aware wrapper for the build pipeline."""
+        await self._run_pipeline(workspace_id, architecture, job_id=job_id)
+
+    async def _run_pipeline(self, workspace_id: str, architecture: dict | None, *, job_id: str | None = None) -> None:
         """Run the full build pipeline sequentially."""
         from app.services.builder_service import builder_service
         from app.services.security_service import security_service
@@ -64,6 +98,8 @@ class BuildOrchestrator:
         from app.services.workspace_service import workspace_service
         from app.services.agent_service import agent_service
         from app.services.execution_logger import execution_logger
+        from app.services.spec_engine import spec_engine
+        from app.services.evaluation_engine import evaluation_engine
 
         try:
             # Update agents
@@ -118,6 +154,11 @@ class BuildOrchestrator:
                 next_task = task_service.next_pending_task(workspace_id)
                 if not next_task:
                     break  # All tasks done
+
+                # ── P4: Sync current task on workspace ────────────────────
+                workspace_service.update_build_status(
+                    workspace_id, "Building", "Builder Agent", next_task.title
+                )
 
                 # Determine which agent should handle this task
                 is_builder_task = next_task.assigned_agent in ("Builder Agent", "Head Agent") or \
@@ -240,6 +281,14 @@ class BuildOrchestrator:
                 workspace = workspace_service.recalculate_progress(workspace_id)
                 self.build_states[workspace_id]["last_activity"] = now_label()
 
+                # Update job progress
+                if job_id:
+                    _get_job_manager().update_progress(
+                        job_id,
+                        progress=workspace.progress,
+                        message=f"Building: {workspace.current_task_title or 'processing'}",
+                    )
+
                 await event_bus.publish(Event(
                     type="BUILD_PROGRESS_UPDATED",
                     source="Build Orchestrator",
@@ -255,27 +304,135 @@ class BuildOrchestrator:
                 # Small delay between tasks for UI readability
                 await asyncio.sleep(0.5)
 
-            # ── Pipeline complete ─────────────────────────────────────────
-            workspace_service.update_build_status(workspace_id, "Completed")
-            workspace = workspace_service.recalculate_progress(workspace_id)
+            # ── Sprint 4: Autonomous Improvement Loop ──────────────────────
+            # Only run the loop if there were no fatal pipeline failures so far.
+            failed_count = task_service.count_failed(workspace_id)
+            completed_count = task_service.count_completed(workspace_id)
+            
+            final_status = "Completed"
+            spec = spec_engine.read_spec(workspace.path) or {}
+
+            if failed_count == 0 or completed_count > 0:
+                MAX_IMPROVEMENT_CYCLES = 3
+                
+                for cycle in range(MAX_IMPROVEMENT_CYCLES):
+                    # 1. Evaluate the project
+                    evaluation = evaluation_engine.evaluate(workspace.path, spec)
+                    
+                    # 2. Check new completion rules
+                    if evaluation["passed"]:
+                        logger.info(f"Workspace {workspace_id} passed evaluation with score {evaluation['overall_score']}")
+                        break  # Done!
+                        
+                    # 3. Detect gaps
+                    gaps = evaluation_engine.detect_gaps(spec, evaluation)
+                    if not gaps:
+                        logger.info(f"Workspace {workspace_id} has low score but no actionable gaps found.")
+                        break  # Nothing more we can do autonomously
+                        
+                    # 4. Generate improvement tasks
+                    logger.info(f"Improvement cycle {cycle+1}/{MAX_IMPROVEMENT_CYCLES}: Generating {len(gaps)} tasks")
+                    new_tasks = evaluation_engine.generate_improvement_tasks(gaps, spec, workspace_id)
+                    
+                    if not new_tasks:
+                        break
+                        
+                    for task_create in new_tasks:
+                        task_service.create(task_create)
+                        
+                    workspace_service.recalculate_progress(workspace_id)
+                    
+                    # Log improvement loop start
+                    execution_logger.log(
+                        workspace.path, "Build Orchestrator", "IMPROVEMENT_CYCLE_STARTED", 
+                        details=f"Cycle {cycle+1}: Score {evaluation['overall_score']}, adding {len(new_tasks)} tasks"
+                    )
+                    
+                    # 5. Execute the new tasks (jump back to the task processor)
+                    while True:
+                        next_task = task_service.next_pending_task(workspace_id)
+                        if not next_task:
+                            break
+                            
+                        workspace_service.update_build_status(
+                            workspace_id, "Building", "Builder Agent", next_task.title
+                        )
+                        
+                        agent_service.update("builder-agent", status="Running", current_task=next_task.title)
+                        build_result = await builder_service.execute_task(
+                            next_task.id, workspace_id, architecture=architecture
+                        )
+                        
+                        if build_result["status"] == "error":
+                            task_service.update(TaskUpdate(id=next_task.id, status="Failed"))
+                            workspace_service.recalculate_progress(workspace_id)
+                            continue
+                            
+                        task_service.update(TaskUpdate(id=next_task.id, status="Completed"))
+                        workspace_service.recalculate_progress(workspace_id)
+                        await asyncio.sleep(0.5)
+
+            # ── P6: Pipeline complete — full completion logic ─────────────
+            failed_count = task_service.count_failed(workspace_id)
+            completed_count = task_service.count_completed(workspace_id)
+            total_count = task_service.count_total(workspace_id)
+
+            # Determine final status
+            if failed_count > 0 and completed_count == 0:
+                final_status = "Failed"
+
+            # P6: Set all completion fields explicitly
+            completion_time = now_label()
+            workspace_service.update(
+                workspace_id,
+                status=final_status,
+                progress=int((completed_count / total_count) * 100) if total_count > 0 else 100,
+                current_agent=None,
+                current_task_title=None,
+                estimated_completion_minutes=0,
+                completed_at=completion_time,
+            )
 
             agent_service.update("builder-agent", status="Idle", current_task="Build complete")
             agent_service.update("security-agent", status="Idle", current_task="Build complete")
 
-            execution_logger.log(workspace.path, "Build Orchestrator", "PIPELINE_COMPLETED", details=f"Progress: {workspace.progress}%")
+            # Mark job as completed
+            if job_id:
+                _get_job_manager().update_progress(job_id, progress=100, message=f"Build {final_status.lower()}")
 
+            execution_logger.log(workspace.path, "Build Orchestrator", "PIPELINE_COMPLETED",
+                                 details=f"Status: {final_status}, Completed: {completed_count}, Failed: {failed_count}")
+
+            # ── P10: Generate build report ────────────────────────────────
+            workspace = workspace_service.get(workspace_id)
+            report = self._generate_build_report(workspace_id, workspace)
+            workspace_service.store_build_report(workspace_id, report)
+
+            # ── P9: Archive the workspace ─────────────────────────────────
+            workspace_service.archive_workspace(workspace)
+
+            # ── Publish BUILD_COMPLETED event ─────────────────────────────
             await event_bus.publish(Event(
                 type="BUILD_COMPLETED",
                 source="Build Orchestrator",
-                message=f"Build completed for workspace {workspace_id}",
-                severity="success",
-                payload={"workspace_id": workspace_id},
+                message=f"Build {final_status.lower()} for {workspace.project_name}",
+                severity="success" if final_status == "Completed" else "warning",
+                payload={
+                    "workspace_id": workspace_id,
+                    "status": final_status,
+                    "report": report,
+                },
             ))
 
-            self.build_states[workspace_id]["status"] = "Completed"
+            self.build_states[workspace_id]["status"] = final_status
 
         except asyncio.CancelledError:
-            workspace_service.update_build_status(workspace_id, "Failed")
+            workspace_service.update(
+                workspace_id,
+                status="Failed",
+                current_agent=None,
+                current_task_title=None,
+            )
             agent_service.update("builder-agent", status="Paused", current_task="Build cancelled")
             agent_service.update("security-agent", status="Idle", current_task="Monitoring review queue")
 
@@ -289,7 +446,12 @@ class BuildOrchestrator:
 
         except Exception as e:
             logger.exception(f"Build pipeline failed for {workspace_id}")
-            workspace_service.update_build_status(workspace_id, "Failed")
+            workspace_service.update(
+                workspace_id,
+                status="Failed",
+                current_agent=None,
+                current_task_title=None,
+            )
             agent_service.update("builder-agent", status="Paused", current_task=f"Error: {str(e)[:80]}")
             agent_service.update("security-agent", status="Idle", current_task="Monitoring review queue")
 
@@ -309,6 +471,92 @@ class BuildOrchestrator:
 
         finally:
             self.active_builds.pop(workspace_id, None)
+
+    # ── Build Report Generation (P10) ─────────────────────────────────────
+
+    def _generate_build_report(self, workspace_id: str, workspace) -> dict:
+        """Generate a build report and write to .agentos/build_report.json."""
+        from app.services.task_service import task_service
+        from app.services.spec_engine import spec_engine
+        from app.services.evaluation_engine import evaluation_engine
+
+        completed = task_service.count_completed(workspace_id)
+        failed = task_service.count_failed(workspace_id)
+        total = task_service.count_total(workspace_id)
+        approved = task_service.count_security_approved(workspace_id)
+        rejected = task_service.count_security_rejected(workspace_id)
+        files_created = task_service.count_output_files(workspace_id)
+
+        # Calculate build duration
+        build_state = self.build_states.get(workspace_id, {})
+        started_at = build_state.get("started_at")
+        duration_seconds = 0
+        duration_display = "0s"
+        if started_at:
+            delta = datetime.now() - started_at
+            duration_seconds = delta.total_seconds()
+            minutes = int(duration_seconds // 60)
+            seconds = int(duration_seconds % 60)
+            if minutes > 0:
+                duration_display = f"{minutes}m {seconds}s"
+            else:
+                duration_display = f"{seconds}s"
+
+        # Sprint 4: Real evaluation scoring
+        spec = spec_engine.read_spec(workspace.path) or {}
+        evaluation = evaluation_engine.evaluate(workspace.path, spec)
+        
+        # Pull basic stats from the evaluation
+        pages_created = 0
+        components_created = 0
+        assets_created = 0
+        
+        frontend_src = os.path.join(workspace.path.replace("/", os.sep), "frontend", "src")
+        if os.path.exists(frontend_src):
+            for root_dir, dirs, files in os.walk(frontend_src):
+                if "pages" in root_dir.lower():
+                    pages_created += len([f for f in files if f.endswith((".js", ".jsx", ".ts", ".tsx"))])
+                elif "components" in root_dir.lower():
+                    components_created += len([f for f in files if f.endswith((".js", ".jsx", ".ts", ".tsx"))])
+                elif "assets" in root_dir.lower():
+                    assets_created += len(files)
+
+        report = {
+            "workspace_id": workspace_id,
+            "project_name": workspace.project_name,
+            "location": workspace.path,
+            "files_created": files_created,
+            "pages_created": pages_created,
+            "components_created": components_created,
+            "assets_created": assets_created,
+            "tasks_completed": completed,
+            "tasks_failed": failed,
+            "tasks_total": total,
+            "security_reviews_approved": approved,
+            "security_reviews_rejected": rejected,
+            "build_duration_seconds": round(duration_seconds, 2),
+            "build_duration_display": duration_display,
+            "build_quality_score": evaluation["overall_score"],
+            "dimension_scores": evaluation.get("dimension_scores", {}),
+            "missing_features": evaluation.get("missing_features", []),
+            "quality_passed": evaluation.get("passed", False),
+            "warnings": [gap.get("detail", "Gap found") for gap in evaluation.get("gaps", [])],
+            "status": workspace.status,
+            "generated_at": now_label(),
+        }
+
+        # Write to disk
+        try:
+            report_path = os.path.join(
+                workspace.path.replace("/", os.sep), ".agentos", "build_report.json"
+            )
+            os.makedirs(os.path.dirname(report_path), exist_ok=True)
+            with open(report_path, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2, default=str)
+        except OSError as e:
+            logger.warning(f"Could not write build report: {e}")
+
+        return report
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
@@ -346,7 +594,7 @@ class BuildOrchestrator:
             estimated_minutes_remaining=workspace.estimated_completion_minutes,
             current_agent=workspace.current_agent,
             current_task_title=workspace.current_task_title,
-            build_status=workspace.build_status,
+            status=workspace.status,
             last_activity=state.get("last_activity"),
         )
 

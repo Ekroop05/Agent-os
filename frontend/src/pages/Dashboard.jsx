@@ -1,5 +1,13 @@
 import ActivityFeed from "../components/ActivityFeed";
 
+const STATUS_COLORS = {
+  Planning: "#7dd3fc",
+  Building: "#c4b5fd",
+  Reviewing: "#fde68a",
+  Completed: "#86efac",
+  Failed: "#fca5a5",
+};
+
 export default function Dashboard({ data }) {
   const agents = data?.agents || [];
   const tasks = data?.tasks || [];
@@ -9,7 +17,10 @@ export default function Dashboard({ data }) {
 
   const activeAgents = systemStatus?.active_agents ?? agents.filter((agent) => agent && agent.status === "Running").length;
   const activeTasks = systemStatus?.active_tasks ?? tasks.filter((task) => task && task.status && ["Running", "Reviewing"].includes(task.status)).length;
-  const activeWorkspaces = systemStatus?.active_workspaces ?? workspaces.filter((workspace) => workspace && workspace.status === "Active").length;
+  // P8: Use status field (not build_status)
+  const activeWorkspaces = systemStatus?.active_workspaces ?? workspaces.filter(
+    (ws) => ws && ws.status && ["Building", "Reviewing", "Planning"].includes(ws.status)
+  ).length;
 
   return (
     <div className="dashboard-grid">
@@ -30,8 +41,16 @@ export default function Dashboard({ data }) {
           <div className="sandbox-list">
             {workspaces.length ? workspaces.slice(0, 5).map((workspace) => (
               <div className="state-row" key={workspace?.id || Math.random()}>
-                <span>{workspace?.name || "Unnamed"}</span>
-                <strong>{workspace?.path || "—"}</strong>
+                <span>{workspace?.project_name || workspace?.name || "Unnamed"}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span
+                    className={`status-pill ${(workspace?.status || "planning").toLowerCase()}`}
+                    style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+                  >
+                    {workspace?.status || "Planning"}
+                  </span>
+                  <strong>{workspace?.progress ?? 0}%</strong>
+                </div>
               </div>
             )) : <p className="panel-copy">No approved workspaces yet.</p>}
           </div>
@@ -49,3 +68,4 @@ function Stat({ label, value }) {
     </article>
   );
 }
+

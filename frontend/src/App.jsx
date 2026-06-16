@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
+import AgentStatusBar from "./components/AgentStatusBar";
 import Activity from "./pages/Activity";
 import Agents from "./pages/Agents";
 import Architect from "./pages/Architect";
@@ -11,7 +12,7 @@ import Settings from "./pages/Settings";
 import Tasks from "./pages/Tasks";
 import Workspaces from "./pages/Workspaces";
 import { api } from "./services/api";
-import { connectChannel } from "./services/websocket";
+import { connectChannel, setOnReconnect } from "./services/websocket";
 
 const pages = {
   "/": Dashboard,
@@ -66,19 +67,24 @@ export default function App() {
     sandbox: null,
     systemStatus: null,
     buildEvents: [],
+    jobs: [],
+    timeline: [],
     error: "",
     visibilityMode: "Developer",
   });
 
-  useEffect(() => {
-    async function load() {
-      const [agents, tasks, workspaces, activity, sandbox, systemStatus] = await Promise.all([
+  // ── Sprint 4.5: Full state re-sync (used on reconnect + initial load) ──
+  async function syncAllState() {
+    try {
+      const [agents, tasks, workspaces, activity, sandbox, systemStatus, jobs, timeline] = await Promise.all([
         api.getAgents(),
         api.getTasks(),
         api.getWorkspaces(),
         api.getActivity(),
         api.getSandbox(),
         api.getSystemStatus(),
+        api.getJobs().catch(() => []),
+        api.getTimeline().catch(() => []),
       ]);
 
       setState((current) => ({
@@ -89,15 +95,28 @@ export default function App() {
         activity,
         sandbox,
         systemStatus,
+        jobs,
+        timeline,
         error: "",
       }));
-    }
-
-    load().catch((error) => {
+    } catch (error) {
       setState((current) => ({
         ...current,
         error: `Backend unavailable: ${error.message}`,
       }));
+    }
+  }
+
+  useEffect(() => {
+    syncAllState();
+  }, []);
+
+  // Sprint 4.5: Register reconnect callback so WebSocket reconnections
+  // trigger a full state re-sync from the REST API
+  useEffect(() => {
+    setOnReconnect(() => {
+      console.log("[App] WebSocket reconnected — syncing state");
+      syncAllState();
     });
   }, []);
 
@@ -111,14 +130,14 @@ export default function App() {
   useEffect(() => {
     let pollInterval = null;
     const isBuilding = state.workspaces.some(
-      (ws) => ws.build_status === "Building" || ws.build_status === "Reviewing"
+      (ws) => ws.status === "Building" || ws.status === "Reviewing"
     );
 
     if (isBuilding) {
       pollInterval = setInterval(() => {
-        Promise.all([api.getWorkspaces(), api.getTasks()])
-          .then(([workspaces, tasks]) => {
-            setState((current) => ({ ...current, workspaces, tasks }));
+        Promise.all([api.getWorkspaces(), api.getTasks(), api.getJobs().catch(() => [])])
+          .then(([workspaces, tasks, jobs]) => {
+            setState((current) => ({ ...current, workspaces, tasks, jobs }));
           })
           .catch(() => {});
       }, 5000);
@@ -132,7 +151,6 @@ export default function App() {
   useEffect(() => {
     // ── Activity Channel ────────────────────────────────────────────────
     const activitySocket = connectChannel("activity", (raw) => {
-      console.log("WS EVENT [activity]", raw);
       setState((current) => ({
         ...current,
         activity: [raw, ...current.activity].slice(0, 80),
@@ -142,11 +160,7 @@ export default function App() {
     // ── Agents Channel ──────────────────────────────────────────────────
     const agentSocket = connectChannel("agents", (raw) => {
       const { envelope, payload } = unwrapEnvelope(raw);
-      console.log("WS EVENT [agents]", envelope?.event_type || "legacy", payload);
-      if (!isValidAgent(payload)) {
-        console.warn("INVALID AGENT PAYLOAD — rejected", payload);
-        return;
-      }
+      if (!isValidAgent(payload)) return;
       setState((current) => ({
         ...current,
         agents: upsertById(current.agents, payload),
@@ -156,12 +170,7 @@ export default function App() {
     // ── Tasks Channel ───────────────────────────────────────────────────
     const taskSocket = connectChannel("tasks", (raw) => {
       const { envelope, payload } = unwrapEnvelope(raw);
-      console.log("WS EVENT [tasks]", envelope?.event_type || "legacy", payload);
-      if (!isValidTask(payload)) {
-        console.warn("INVALID TASK PAYLOAD — rejected", payload);
-        return;
-      }
-      console.log("TASK UPDATE", payload.id, payload.status, payload.title);
+      if (!isValidTask(payload)) return;
       setState((current) => ({
         ...current,
         tasks: upsertById(current.tasks, payload),
@@ -171,7 +180,6 @@ export default function App() {
     // ── Workspaces Channel ──────────────────────────────────────────────
     const workspaceSocket = connectChannel("workspaces", (raw) => {
       const { envelope, payload } = unwrapEnvelope(raw);
-      console.log("WS EVENT [workspaces]", envelope?.event_type || "legacy", payload);
 
       if (payload && payload.deleted) {
         setState((current) => ({
@@ -181,10 +189,7 @@ export default function App() {
         return;
       }
 
-      if (!isValidWorkspace(payload)) {
-        console.warn("INVALID WORKSPACE PAYLOAD — rejected", payload);
-        return;
-      }
+      if (!isValidWorkspace(payload)) return;
       setState((current) => ({
         ...current,
         workspaces: upsertById(current.workspaces, payload),
@@ -193,7 +198,6 @@ export default function App() {
 
     // ── System Channel ──────────────────────────────────────────────────
     const systemSocket = connectChannel("system", (raw) => {
-      console.log("WS EVENT [system]", raw);
       setState((current) => ({
         ...current,
         systemStatus: raw,
@@ -203,7 +207,6 @@ export default function App() {
     // ── Build Channel ───────────────────────────────────────────────────
     const buildSocket = connectChannel("build", (raw) => {
       const { envelope, payload } = unwrapEnvelope(raw);
-      console.log("WS EVENT [build]", envelope?.event_type || "legacy", payload);
       setState((current) => ({
         ...current,
         buildEvents: [envelope || raw, ...current.buildEvents].slice(0, 100),
@@ -220,6 +223,17 @@ export default function App() {
       }
     });
 
+    // ── Sprint 4.5: Jobs Channel ────────────────────────────────────────
+    const jobsSocket = connectChannel("jobs", (raw) => {
+      const { envelope, payload } = unwrapEnvelope(raw);
+      if (payload && payload.job_id) {
+        setState((current) => ({
+          ...current,
+          jobs: upsertByKey(current.jobs, payload, "job_id"),
+        }));
+      }
+    });
+
     return () => {
       activitySocket?.close();
       agentSocket?.close();
@@ -227,6 +241,7 @@ export default function App() {
       workspaceSocket?.close();
       systemSocket?.close();
       buildSocket?.close();
+      jobsSocket?.close();
     };
   }, []);
 
@@ -257,6 +272,11 @@ export default function App() {
             <CurrentPage data={state} setData={setState} visibilityMode={state.visibilityMode} />
           </ErrorBoundary>
         </main>
+        <AgentStatusBar
+          agents={state.agents}
+          jobs={state.jobs}
+          timeline={state.timeline}
+        />
       </div>
     </div>
   );
@@ -268,4 +288,12 @@ function upsertById(items, item) {
     return [item, ...items];
   }
   return items.map((current) => (current.id === item.id ? { ...current, ...item } : current));
+}
+
+function upsertByKey(items, item, key) {
+  const exists = items.some((current) => current[key] === item[key]);
+  if (!exists) {
+    return [item, ...items];
+  }
+  return items.map((current) => (current[key] === item[key] ? { ...current, ...item } : current));
 }

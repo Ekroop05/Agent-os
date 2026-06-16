@@ -66,9 +66,11 @@ class TaskUpdate(BaseModel):
 
 class Workspace(BaseModel):
     id: str
+    project_name: str
     name: str
+    slug: str
     description: str
-    status: str
+    status: str = "Planning"            # Planning | Building | Reviewing | Completed | Failed
     active_agents: int
     task_count: int
     created_at: str
@@ -77,7 +79,7 @@ class Workspace(BaseModel):
     estimated_completion_minutes: float | None = None
     current_agent: str | None = None
     current_task_title: str | None = None
-    build_status: str = "Planning"            # Planning | Building | Reviewing | Completed | Failed
+    completed_at: str | None = None
 
 
 class WorkspaceCreate(BaseModel):
@@ -169,7 +171,7 @@ class BuildProgress(BaseModel):
     estimated_minutes_remaining: float | None = None
     current_agent: str | None = None
     current_task_title: str | None = None
-    build_status: str = "Planning"
+    status: str = "Planning"
     last_activity: str | None = None
 
 
@@ -182,3 +184,92 @@ class SecurityReviewResult(BaseModel):
     approved: bool
     issues: list[str] = Field(default_factory=list)
     notes: str | None = None
+
+
+class BuildReport(BaseModel):
+    workspace_id: str
+    project_name: str
+    location: str
+    files_created: int = 0
+    pages_created: int = 0
+    components_created: int = 0
+    assets_created: int = 0
+    tasks_completed: int = 0
+    tasks_failed: int = 0
+    tasks_total: int = 0
+    security_reviews_approved: int = 0
+    security_reviews_rejected: int = 0
+    build_duration_seconds: float = 0
+    build_duration_display: str = "0s"
+    build_quality_score: int = 0
+    warnings: list[str] = Field(default_factory=list)
+    status: str = "Completed"
+    generated_at: str = ""
+
+
+class WorkspaceArchiveEntry(BaseModel):
+    id: str
+    project_name: str
+    slug: str
+    path: str
+    status: str
+    created_at: str
+    completed_at: str | None = None
+    task_count: int = 0
+    tasks_completed: int = 0
+    tasks_failed: int = 0
+    progress: int = 0
+
+
+# ── Sprint 4.5: Job Engine Schemas ────────────────────────────────────────
+
+class Job(BaseModel):
+    job_id: str
+    agent: str
+    status: str = "Pending"          # Pending | Running | Completed | Failed | Cancelled
+    progress: int = 0
+    message: str = ""
+    started_at: str = ""
+    updated_at: str = ""
+    completed_at: str | None = None
+    workspace_id: str | None = None
+    conversation_id: str | None = None
+    error: str | None = None
+
+
+class JobCreateRequest(BaseModel):
+    agent: str = "Architect"
+    workspace_id: str | None = None
+    conversation_id: str | None = None
+
+
+# ── Sprint 4.5: Runtime Manager Schemas ───────────────────────────────────
+
+class RuntimeEntry(BaseModel):
+    workspace_id: str
+    project_name: str = ""
+    frontend_port: int | None = None
+    backend_port: int | None = None
+    frontend_pid: int | None = None
+    backend_pid: int | None = None
+    status: str = "stopped"          # running | stopped | error
+    started_at: str = ""
+    uptime_seconds: float = 0
+
+
+class RuntimeStopRequest(BaseModel):
+    workspace_id: str
+
+
+# ── Sprint 4.5: Event Timeline Schema ────────────────────────────────────
+
+class TimelineEvent(BaseModel):
+    id: str
+    timestamp: str
+    event_type: str
+    source: str
+    message: str
+    severity: str = "info"
+    workspace_id: str | None = None
+    job_id: str | None = None
+

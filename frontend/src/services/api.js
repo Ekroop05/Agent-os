@@ -41,6 +41,7 @@ export const api = {
   // Workspaces
   getWorkspaces: () => request("/workspaces"),
   getWorkspace: (workspaceId) => request(`/workspaces/${workspaceId}`),
+  getWorkspaceArchive: () => request("/workspaces/archive"),
   createWorkspace: (workspace) =>
     request("/workspaces/create", { method: "POST", body: JSON.stringify(workspace) }),
   deleteWorkspace: (workspaceId) =>
@@ -79,6 +80,8 @@ export const api = {
     request(`/build/progress/${workspaceId}`),
   cancelBuild: (workspaceId) =>
     request(`/build/cancel/${workspaceId}`, { method: "POST" }),
+  getBuildReport: (workspaceId) =>
+    request(`/build/report/${workspaceId}`),
 
   // Logs
   getLogs: (workspaceId, agent) => {
@@ -87,4 +90,22 @@ export const api = {
     const qs = params.toString();
     return request(`/logs/${workspaceId}${qs ? `?${qs}` : ""}`);
   },
+
+  // Sprint 4.5: Jobs
+  getJobs: () => request("/jobs"),
+  getJob: (jobId) => request(`/jobs/${jobId}`),
+  cancelJob: (jobId) =>
+    request(`/jobs/${jobId}/cancel`, { method: "POST" }),
+
+  // Sprint 4.5: Runtimes
+  getRuntimes: () => request("/runtimes"),
+  getRuntime: (workspaceId) => request(`/runtimes/${workspaceId}`),
+  stopRuntime: (workspaceId) =>
+    request("/runtimes/stop", {
+      method: "POST",
+      body: JSON.stringify({ workspace_id: workspaceId }),
+    }),
+
+  // Sprint 4.5: Timeline
+  getTimeline: (limit = 100) => request(`/timeline?limit=${limit}`),
 };

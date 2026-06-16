@@ -23,6 +23,26 @@ const TASK_STATUS_ICON = {
 const DEFAULT_STATUS_STYLE = { bg: "rgba(148, 163, 184, 0.15)", color: "#94a3b8", icon: "○" };
 const DEFAULT_TASK_STYLE = { icon: "○", color: "#94a3b8" };
 
+/**
+ * Derive the current task display text from workspace status.
+ * P4: Never show a completed task as active.
+ */
+function getCurrentTaskDisplay(ws) {
+  // If the workspace has a current_task_title set by the backend, trust it
+  if (ws.current_task_title && ws.status !== "Completed" && ws.status !== "Failed") {
+    return ws.current_task_title;
+  }
+  // Otherwise derive from workspace status
+  switch (ws.status) {
+    case "Completed": return "Build Completed";
+    case "Failed": return "Build Failed";
+    case "Reviewing": return "Awaiting Security Review";
+    case "Planning": return "Planning";
+    case "Building": return ws.current_task_title || "Starting...";
+    default: return "Idle";
+  }
+}
+
 export default function Sandbox({ data, setData, visibilityMode }) {
   const [draftRoot, setDraftRoot] = useState(data?.sandbox?.project_root || "D:/Projects");
   const [error, setError] = useState("");
@@ -96,15 +116,20 @@ export default function Sandbox({ data, setData, visibilityMode }) {
           {workspaces.map((ws) => {
             if (!ws || !ws.id) return null;
 
-            const buildStatus = ws.build_status || "Planning";
-            const statusStyle = STATUS_COLORS[buildStatus] || DEFAULT_STATUS_STYLE;
+            // P7/P8: Use ws.status (unified field, no more build_status)
+            const workspaceStatus = ws.status || "Planning";
+            const statusStyle = STATUS_COLORS[workspaceStatus] || DEFAULT_STATUS_STYLE;
             const wsTasks = tasksForWorkspace(ws.id);
+
+            // P8: Use backend-calculated progress as single source of truth
+            const progress = ws.progress || 0;
             const completedTasks = wsTasks.filter((t) => t.status === "Completed").length;
             const failedTasks = wsTasks.filter((t) => t.status === "Failed").length;
             const totalTasks = wsTasks.length || ws.task_count || 0;
-            const doneTasks = completedTasks + failedTasks;
-            const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : (ws.progress || 0);
             const wsEvents = eventsForWorkspace(ws.id);
+
+            // P4: Current task display
+            const currentTaskDisplay = getCurrentTaskDisplay(ws);
 
             return (
               <ErrorBoundary fallbackLabel={`Build card: ${ws.name || ws.id}`} key={ws.id}>
@@ -112,12 +137,12 @@ export default function Sandbox({ data, setData, visibilityMode }) {
                   {/* Card Header */}
                   <div className="build-card-header">
                     <div className="build-card-title">
-                      <h3>{ws.name || "Unnamed Workspace"}</h3>
+                      <h3>{ws.project_name || ws.name || "Unnamed Workspace"}</h3>
                       <span
                         className="build-status-badge"
                         style={{ background: statusStyle.bg, color: statusStyle.color }}
                       >
-                        {statusStyle.icon} {buildStatus}
+                        {statusStyle.icon} {workspaceStatus}
                       </span>
                     </div>
                     <p className="build-card-path">{ws.path || "—"}</p>
@@ -165,18 +190,19 @@ export default function Sandbox({ data, setData, visibilityMode }) {
                         <strong>
                           {ws.estimated_completion_minutes
                             ? `${ws.estimated_completion_minutes} min`
-                            : progress >= 100 ? "Done" : "Calculating..."}
+                            : workspaceStatus === "Completed" ? "Done" : "Calculating..."}
                         </strong>
                       </div>
                       <div className="build-stat">
                         <span className="build-stat-label">Current Agent</span>
                         <strong className="build-agent-name">
-                          {ws.current_agent || "—"}
+                          {workspaceStatus === "Completed" || workspaceStatus === "Failed"
+                            ? "—" : (ws.current_agent || "—")}
                         </strong>
                       </div>
                       <div className="build-stat">
                         <span className="build-stat-label">Current Task</span>
-                        <strong>{ws.current_task_title || "—"}</strong>
+                        <strong>{currentTaskDisplay}</strong>
                       </div>
                     </div>
                   </div>
@@ -254,9 +280,9 @@ export default function Sandbox({ data, setData, visibilityMode }) {
                           <div
                             key={phase}
                             className={`executive-phase ${
-                              buildStatus === phase ? "active" :
+                              workspaceStatus === phase ? "active" :
                               ["Planning", "Building", "Reviewing", "Completed"].indexOf(phase) <
-                              ["Planning", "Building", "Reviewing", "Completed"].indexOf(buildStatus)
+                              ["Planning", "Building", "Reviewing", "Completed"].indexOf(workspaceStatus)
                                 ? "done" : ""
                             }`}
                           >
@@ -273,6 +299,9 @@ export default function Sandbox({ data, setData, visibilityMode }) {
           })}
         </div>
       )}
+
+      {/* ── Sprint 4.5: Runtime Status Panel ────────── */}
+      <RuntimePanel />
 
       {/* ── Existing Projects on Disk ─────────────── */}
       {(sandbox.projects || []).length > 0 && (
@@ -292,5 +321,85 @@ export default function Sandbox({ data, setData, visibilityMode }) {
         </section>
       )}
     </div>
+  );
+}
+
+
+/**
+ * Sprint 4.5: Runtime Status Panel
+ * Shows per-workspace process info with stop controls.
+ */
+function RuntimePanel() {
+  const [runtimes, setRuntimes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadRuntimes();
+    const interval = setInterval(loadRuntimes, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  async function loadRuntimes() {
+    try {
+      const data = await api.getRuntimes();
+      setRuntimes(data || []);
+    } catch {
+      // Silently fail — endpoint may not exist yet
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleStop(workspaceId) {
+    try {
+      await api.stopRuntime(workspaceId);
+      loadRuntimes();
+    } catch (e) {
+      console.error("Failed to stop runtime:", e);
+    }
+  }
+
+  if (loading || runtimes.length === 0) return null;
+
+  return (
+    <section className="panel">
+      <div className="section-heading">
+        <h2>Runtime Status</h2>
+        <span>{runtimes.filter((r) => r.status === "running").length} active</span>
+      </div>
+      <div className="sandbox-list">
+        {runtimes.map((rt) => (
+          <div className="runtime-card" key={rt.workspace_id}>
+            <div className="runtime-header">
+              <span className={`status-dot ${rt.status === "running" ? "pulse" : ""}`}
+                    style={{ color: rt.status === "running" ? "#86efac" : "#64748b" }}>
+                ●
+              </span>
+              <strong>{rt.project_name || rt.workspace_id}</strong>
+              <span className={`status-pill ${rt.status}`}>{rt.status}</span>
+            </div>
+            <div className="runtime-details">
+              <div className="runtime-ports">
+                {rt.frontend_port && <span>Frontend: :{rt.frontend_port}</span>}
+                {rt.backend_port && <span>Backend: :{rt.backend_port}</span>}
+              </div>
+              <div className="runtime-pids">
+                {rt.frontend_pid && <span>PID {rt.frontend_pid}</span>}
+                {rt.backend_pid && <span>PID {rt.backend_pid}</span>}
+              </div>
+            </div>
+            {rt.status === "running" && (
+              <button
+                className="btn-secondary"
+                onClick={() => handleStop(rt.workspace_id)}
+                title="Stop all processes for this workspace"
+              >
+                Stop Runtime
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
