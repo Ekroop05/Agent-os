@@ -1,0 +1,209 @@
+"""
+Task Validator — quality gate for atomic tasks.
+
+Runs after decomposition and before task creation.
+Rejects tasks that are:
+  - Duplicates (identical or near-identical titles)
+  - Vague (too short or matching vague patterns)
+  - Multi-objective (joins two unrelated objectives with "and")
+  - Planning tasks (contain planning verbs)
+  - Recursive (title matches the original coarse task)
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from typing import Any
+
+logger = logging.getLogger("task_validator")
+
+
+# ── Vague Task Patterns ───────────────────────────────────────────────────
+
+_VAGUE_PATTERNS = [
+    r"^build\s+(the\s+)?website$",
+    r"^build\s+(the\s+)?app$",
+    r"^build\s+(the\s+)?application$",
+    r"^build\s+(the\s+)?project$",
+    r"^implement\s+features$",
+    r"^implement\s+core\s+features$",
+    r"^set\s+up\s+project$",
+    r"^create\s+project$",
+    r"^build\s+frontend$",
+    r"^build\s+backend$",
+    r"^build\s+everything$",
+    r"^do\s+everything$",
+    r"^finish\s+project$",
+    r"^complete\s+project$",
+    r"^make\s+it\s+work$",
+]
+
+# ── Planning Verbs ────────────────────────────────────────────────────────
+
+_PLANNING_VERBS = [
+    "define product scope",
+    "design system architecture",
+    "design architecture",
+    "gather requirements",
+    "analyze requirements",
+    "analyse requirements",
+    "research technologies",
+    "plan development",
+    "document goals",
+    "confirm scope",
+    "scope definition",
+]
+
+
+class ValidationResult:
+    """Result of task validation."""
+
+    def __init__(self):
+        self.accepted: list[dict] = []
+        self.rejected: list[dict] = []
+        self.warnings: list[str] = []
+
+    @property
+    def accepted_count(self) -> int:
+        return len(self.accepted)
+
+    @property
+    def rejected_count(self) -> int:
+        return len(self.rejected)
+
+    def to_dict(self) -> dict:
+        return {
+            "accepted_count": self.accepted_count,
+            "rejected_count": self.rejected_count,
+            "rejected": [
+                {"title": r["task"]["title"], "reason": r["reason"]}
+                for r in self.rejected
+            ],
+            "warnings": self.warnings,
+        }
+
+
+class TaskValidator:
+    """Validates atomic tasks before they are created in the system."""
+
+    def validate(
+        self,
+        tasks: list[dict],
+        original_titles: list[str] | None = None,
+    ) -> ValidationResult:
+        """Validate a list of atomic tasks.
+
+        Parameters
+        ----------
+        tasks : list[dict]
+            Atomic tasks from the decomposer.
+        original_titles : list[str] | None
+            Titles of the original coarse tasks, for recursion detection.
+
+        Returns
+        -------
+        ValidationResult
+            Contains accepted tasks, rejected tasks with reasons, and warnings.
+        """
+        result = ValidationResult()
+        seen_titles: set[str] = set()
+        original_set = {t.strip().lower() for t in (original_titles or [])}
+
+        for task in tasks:
+            title = task.get("title", "").strip()
+            title_lower = title.lower()
+            rejection_reason = None
+
+            # ── Check 1: Empty or very short title ────────────────────
+            if not title or len(title.split()) < 2:
+                rejection_reason = f"Title too short ({len(title.split())} words): '{title}'"
+
+            # ── Check 2: Duplicate detection ──────────────────────────
+            elif title_lower in seen_titles:
+                rejection_reason = f"Duplicate title: '{title}'"
+
+            # ── Check 3: Vagueness check ──────────────────────────────
+            elif self._is_vague(title_lower):
+                rejection_reason = f"Vague task: '{title}'"
+
+            # ── Check 4: Multi-objective check ────────────────────────
+            elif self._is_multi_objective(title):
+                rejection_reason = f"Multi-objective task (contains 'and' joining separate objectives): '{title}'"
+                result.warnings.append(
+                    f"Consider splitting: '{title}'"
+                )
+
+            # ── Check 5: Planning task filter ─────────────────────────
+            elif self._is_planning_task(title_lower):
+                rejection_reason = f"Planning task (not for Builder): '{title}'"
+
+            # ── Check 6: Recursion guard ──────────────────────────────
+            elif title_lower in original_set:
+                rejection_reason = f"Recursive — matches original coarse task: '{title}'"
+
+            if rejection_reason:
+                result.rejected.append({"task": task, "reason": rejection_reason})
+                logger.info("Rejected task: %s", rejection_reason)
+            else:
+                seen_titles.add(title_lower)
+                result.accepted.append(task)
+
+        # ── Warnings for potential issues ─────────────────────────────
+        if len(result.accepted) == 0 and len(tasks) > 0:
+            result.warnings.append("ALL tasks were rejected — decomposition may need review")
+
+        if len(result.accepted) > 150:
+            result.warnings.append(
+                f"Very high task count ({len(result.accepted)}) — verify this is intentional"
+            )
+
+        logger.info(
+            "Validation complete: %d accepted, %d rejected, %d warnings",
+            result.accepted_count,
+            result.rejected_count,
+            len(result.warnings),
+        )
+
+        return result
+
+    # ── Internal checks ───────────────────────────────────────────────────
+
+    def _is_vague(self, title_lower: str) -> bool:
+        """Check if a title matches vague task patterns."""
+        # Word count check (fewer than 3 words is suspicious)
+        if len(title_lower.split()) < 3:
+            # Allow short but specific titles like "Create Navbar"
+            specific_verbs = ["create", "implement", "add", "update", "fix", "configure", "install"]
+            if not any(title_lower.startswith(v) for v in specific_verbs):
+                return True
+
+        return any(re.match(p, title_lower) for p in _VAGUE_PATTERNS)
+
+    def _is_multi_objective(self, title: str) -> bool:
+        """Check if a title joins two unrelated objectives with 'and'."""
+        # Split on " and " and check if both halves look like tasks
+        if " and " not in title.lower():
+            return False
+
+        parts = re.split(r"\s+and\s+", title, flags=re.IGNORECASE)
+        if len(parts) < 2:
+            return False
+
+        # If both parts start with implementation verbs, it's multi-objective
+        impl_verbs = ["create", "build", "implement", "add", "set up", "configure", "install", "deploy"]
+        verb_count = sum(
+            1 for part in parts
+            if any(part.strip().lower().startswith(v) for v in impl_verbs)
+        )
+
+        return verb_count >= 2
+
+    def _is_planning_task(self, title_lower: str) -> bool:
+        """Check if a title represents a planning task."""
+        return any(pv in title_lower for pv in _PLANNING_VERBS)
+
+
+# ── Singleton ─────────────────────────────────────────────────────────────
+
+task_validator = TaskValidator()

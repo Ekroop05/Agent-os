@@ -102,10 +102,17 @@ class ArchitectService:
         state = project_state_manager.get(conversation_id)
         if not state:
             raise HTTPException(status_code=404, detail="Conversation not found")
+        with open("logs/approve_project_trace.log", "a") as f:
+            f.write("CONVERSATION_FOUND\n")
+            
         if not state["architecture_generated"]:
             raise HTTPException(status_code=400, detail="Architecture has not been generated yet")
         if state["approved"]:
             raise HTTPException(status_code=400, detail="Project has already been approved")
+            
+        with open("logs/approve_project_trace.log", "a") as f:
+            f.write("STATE_VALIDATED\n")
+            
         state["approved"] = True
         project_state_manager.recalculate(state)
         return state

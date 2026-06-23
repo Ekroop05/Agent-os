@@ -9,7 +9,7 @@ const initialMessages = [
   },
 ];
 
-export default function Architect({ setData }) {
+export default function Architect({ data, setData }) {
   const [conversationId, setConversationId] = useState(() =>
     sessionStorage.getItem("agentos.architect.conversationId") || ""
   );
@@ -23,6 +23,8 @@ export default function Architect({ setData }) {
     return saved ? JSON.parse(saved) : {};
   });
   const [isTyping, setIsTyping] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [approvalPhase, setApprovalPhase] = useState("");
   const [error, setError] = useState("");
   const scrollRef = useRef(null);
 
@@ -44,10 +46,25 @@ export default function Architect({ setData }) {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
+  useEffect(() => {
+    if (!isApproving || !data || !data.activity) return;
+    
+    const lastActivity = data.activity[0];
+    if (lastActivity) {
+      if (lastActivity.event_type === "WORKSPACE_CREATED") {
+        setApprovalPhase("Generating Task Graph...");
+      } else if (lastActivity.event_type === "TASK_CREATED") {
+        setApprovalPhase("Creating Tasks...");
+      } else if (lastActivity.event_type === "BUILD_STARTED") {
+        setApprovalPhase("Starting Build...");
+      }
+    }
+  }, [data?.activity, isApproving]);
+
   async function sendMessage(event) {
     event.preventDefault();
     const message = draft.trim();
-    if (!message || isTyping) return;
+    if (!message || isTyping || isApproving) return;
 
     setDraft("");
     setError("");
@@ -67,9 +84,14 @@ export default function Architect({ setData }) {
   }
 
   async function approveProject() {
+    api.logTrace("BUTTON_CLICKED");
+    api.logTrace("API_REQUEST_SENT");
+    setIsApproving(true);
+    setApprovalPhase("Approving Project...");
     setError("");
     try {
       const response = await api.approveArchitecture(conversationId);
+      api.logTrace("API_RESPONSE_RECEIVED");
       setStatus((current) => ({
         ...current,
         approved: true,
@@ -101,7 +123,10 @@ export default function Architect({ setData }) {
           : current.sandbox,
       }));
     } catch (requestError) {
+      api.logTrace("API_RESPONSE_ERROR");
       setError(requestError.message);
+    } finally {
+      setIsApproving(false);
     }
   }
 
@@ -211,10 +236,10 @@ export default function Architect({ setData }) {
           <button
             className="approve-button"
             type="button"
-            disabled={!status.approval_required || status.approved}
+            disabled={!status.approval_required || status.approved || isApproving}
             onClick={approveProject}
           >
-            {status.approved ? "✓ Project Approved" : "Approve Project"}
+            {status.approved ? "✓ Project Approved" : isApproving ? approvalPhase : "Approve Project"}
           </button>
 
           <button

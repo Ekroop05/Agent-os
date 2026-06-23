@@ -564,7 +564,17 @@ class BuildOrchestrator:
         """Check if a task title indicates a build/implementation task."""
         build_keywords = ["build", "create", "implement", "frontend", "backend",
                           "component", "feature", "setup", "scaffold", "shell",
-                          "readme", "manifest", "folder", "structure"]
+                          "readme", "manifest", "folder", "structure",
+                          # Sprint M1: atomic task keywords
+                          "model", "schema", "endpoint", "config", "variable",
+                          "theme", "context", "route", "routing", "responsive",
+                          "layout", "style", "navbar", "footer", "hero", "card",
+                          "form", "modal", "service", "crud", "migration", "seed",
+                          "middleware", "handler", "controller", "client", "axios",
+                          "fetch", "state", "loading", "error", "animation",
+                          "transition", "seo", "meta", "optimization", "menu",
+                          "section", "gallery", "catalog", "dashboard", "chart",
+                          "filter", "search", "toggle", "wrapper", "provider"]
         title_lower = title.lower()
         return any(kw in title_lower for kw in build_keywords)
 

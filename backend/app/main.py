@@ -28,6 +28,11 @@ from app.schemas import (
     WorkspaceCreate,
     MCPExecuteRequest,
 )
+from pydantic import BaseModel
+
+class LogTraceRequest(BaseModel):
+    message: str
+
 from app.services.activity_service import activity_service
 from app.services.agent_service import agent_service
 from app.services.architect_service import architect_service, project_state_manager
@@ -60,7 +65,15 @@ app = FastAPI(title="Agent OS API", version="0.7.0")
 
 _HEAD_KEYWORDS = ["scope", "define", "plan", "design", "architecture", "document", "research"]
 _BUILDER_KEYWORDS = ["build", "implement", "create", "frontend", "backend", "feature",
-                     "component", "page", "api", "database", "setup", "shell", "scaffold"]
+                     "component", "page", "api", "database", "setup", "shell", "scaffold",
+                     "model", "schema", "endpoint", "config", "variable", "theme",
+                     "context", "route", "routing", "responsive", "layout", "style",
+                     "navbar", "footer", "hero", "card", "form", "modal", "service",
+                     "crud", "migration", "seed", "middleware", "handler", "controller",
+                     "client", "axios", "fetch", "state", "loading", "error",
+                     "animation", "transition", "seo", "meta", "optimization",
+                     "menu", "section", "gallery", "catalog", "dashboard", "chart",
+                     "filter", "search", "toggle", "wrapper", "provider"]
 _SECURITY_KEYWORDS = ["test", "review", "security", "integration", "deploy", "polish",
                       "validate", "audit", "performance", "qa"]
 
@@ -247,86 +260,130 @@ async def architect_chat(payload: ArchitectChatRequest):
 
 @app.post("/architect/approve", response_model=ArchitectApprovalResponse)
 async def approve_architecture(payload: ArchitectApprovalRequest):
-    state = architect_service.approve(payload.conversation_id)
-    architecture = state["architecture"]
-    workspace = workspace_service.create(
-        WorkspaceCreate(
-            name=architecture["project_name"],
-            description=architecture["architecture"],
-            active_agents=1,
-            path=workspace_service.path_for_project(architecture["project_name"]),
-        )
-    )
-    await event_bus.publish(
-        Event(
-            type="WORKSPACE_CREATED",
-            source="Architect Agent",
-            message=f"Workspace created from approved architecture: {workspace.name}",
-            severity="success",
-            payload=workspace.model_dump(),
-        )
-    )
-    # Sprint 4: Ensure spec exists and write it to disk
-    spec = state.get("spec")
-    if not spec:
-        spec = spec_engine.generate_spec(state)
-        state["spec"] = spec
-        
-    # Write spec to the workspace
-    spec_engine.write_spec(workspace.path, spec)
+    import os
+    os.makedirs("logs", exist_ok=True)
+    with open("logs/approve_project_trace.log", "a") as f:
+        f.write("APPROVE_REQUEST_RECEIVED\n")
+    from app.services.task_decomposer import task_decomposer
+    from app.services.task_validator import task_validator
+    from app.services.task_graph import task_graph
 
-    tasks = []
-    for item in architecture.get("task_breakdown", []):
-        task_title = item.get("title", "Architecture task")
-        base_desc = item.get("description", "Generated from approved architecture.")
-        
-        # Sprint 4: Enrich task description with project context
-        enriched_desc = spec_engine.enrich_task_description(task_title, base_desc, spec)
-        
-        task = task_service.create(
-            TaskCreate(
-                title=task_title,
-                description=enriched_desc,
-                assigned_agent=_route_task_to_agent(task_title),
-                priority=item.get("priority", "Medium"),
-                workspace_id=workspace.id,
+    state = architect_service.approve(payload.conversation_id)
+    try:
+        architecture = state["architecture"]
+        workspace = workspace_service.create(
+            WorkspaceCreate(
+                name=architecture["project_name"],
+                description=architecture["architecture"],
+                active_agents=1,
+                path=workspace_service.path_for_project(architecture["project_name"]),
             )
         )
-        tasks.append(task)
+        with open("logs/approve_project_trace.log", "a") as f:
+            f.write("WORKSPACE_CREATED\n")
         await event_bus.publish(
             Event(
-                type="TASK_CREATED",
+                type="WORKSPACE_CREATED",
                 source="Architect Agent",
-                message=f"Task created from approved architecture: {task.title}",
+                message=f"Workspace created from approved architecture: {workspace.name}",
                 severity="success",
-                payload=task.model_dump(),
+                payload=workspace.model_dump(),
+            )
+        )
+        # Sprint 4: Ensure spec exists and write it to disk
+        spec = state.get("spec")
+        if not spec:
+            spec = spec_engine.generate_spec(state)
+            state["spec"] = spec
+            
+        # Write spec to the workspace
+        spec_engine.write_spec(workspace.path, spec)
+
+        # ── Sprint M1: Atomic Task Decomposition ──────────────────────────
+        architecture_tasks = architecture.get("task_breakdown", [])
+        original_titles = [t.get("title", "") for t in architecture_tasks]
+
+        # Step 1: Decompose coarse tasks into atomic micro-tasks
+        atomic_tasks = task_decomposer.decompose(architecture_tasks, spec)
+
+        # Step 2: Validate atomic tasks (reject vague, duplicate, planning tasks)
+        validation = task_validator.validate(atomic_tasks, original_titles=original_titles)
+
+        # Step 3: Log the planning trace
+        task_graph.save(
+            workspace_path=workspace.path,
+            architecture_tasks=architecture_tasks,
+            expansion_log=task_decomposer.last_expansion_log,
+            final_tasks=validation.accepted,
+            validation_report=validation.to_dict(),
+        )
+
+        # Step 4: Create validated atomic tasks in the system
+        tasks = []
+        for item in validation.accepted:
+            task_title = item.get("title", "Atomic task")
+            base_desc = item.get("description", "Generated from atomic decomposition.")
+            
+            # Enrich task description with project context
+            enriched_desc = spec_engine.enrich_task_description(task_title, base_desc, spec)
+            
+            task = task_service.create(
+                TaskCreate(
+                    title=task_title,
+                    description=enriched_desc,
+                    assigned_agent=_route_task_to_agent(task_title),
+                    priority=item.get("priority", "Medium"),
+                    workspace_id=workspace.id,
+                )
+            )
+            tasks.append(task)
+            await event_bus.publish(
+                Event(
+                    type="TASK_CREATED",
+                    source="Architect Agent",
+                    message=f"Atomic task created: {task.title}",
+                    severity="success",
+                    payload=task.model_dump(),
+                )
+            )
+
+        logger.info(
+            "Sprint M1: Decomposed %d coarse tasks → %d atomic tasks (%d rejected)",
+            len(architecture_tasks), len(tasks), validation.rejected_count,
+        )
+        with open("logs/approve_project_trace.log", "a") as f:
+            f.write("TASKS_CREATED\n")
+
+        workspace = workspace_service.update(workspace.id, task_count=len(tasks))
+        await event_bus.publish(
+            Event(
+                type="WORKSPACE_UPDATED",
+                source="Architect Agent",
+                message=f"Workspace atomic tasks attached: {workspace.name} ({len(tasks)} tasks)",
+                severity="success",
+                payload=workspace.model_dump(),
+            )
+        )
+        await event_bus.publish(
+            Event(
+                type="ARCHITECT_APPROVED",
+                source="Architect Agent",
+                message=f"Architecture approved for {workspace.name}",
+                severity="success",
+                payload={"conversation_id": payload.conversation_id, "workspace_id": workspace.id},
             )
         )
 
-    workspace = workspace_service.update(workspace.id, task_count=len(tasks))
-    await event_bus.publish(
-        Event(
-            type="WORKSPACE_UPDATED",
-            source="Architect Agent",
-            message=f"Workspace planning tasks attached: {workspace.name}",
-            severity="success",
-            payload=workspace.model_dump(),
-        )
-    )
-    await event_bus.publish(
-        Event(
-            type="ARCHITECT_APPROVED",
-            source="Architect Agent",
-            message=f"Architecture approved for {workspace.name}",
-            severity="success",
-            payload={"conversation_id": payload.conversation_id, "workspace_id": workspace.id},
-        )
-    )
+        # ── AUTO-START BUILD PIPELINE ─────────────────────────────────────
+        await build_orchestrator.start_pipeline(workspace.id, architecture)
+        with open("logs/approve_project_trace.log", "a") as f:
+            f.write("BUILD_STARTED\n")
 
-    # ── AUTO-START BUILD PIPELINE ─────────────────────────────────────
-    await build_orchestrator.start_pipeline(workspace.id, architecture)
-
-    return ArchitectApprovalResponse(conversation_id=payload.conversation_id, approved=True, workspace=workspace, tasks=tasks)
+        return ArchitectApprovalResponse(conversation_id=payload.conversation_id, approved=True, workspace=workspace, tasks=tasks)
+    except Exception as e:
+        with open("logs/approve_project_trace.log", "a") as f:
+            f.write("BUILD_FAILED\n")
+        raise e
 
 
 # ── Build Pipeline Endpoints ──────────────────────────────────────────────
@@ -368,6 +425,13 @@ def get_activity():
 def get_sandbox():
     return sandbox_service.get_state()
 
+@app.post("/log_trace")
+def log_trace(payload: LogTraceRequest):
+    import os
+    os.makedirs("logs", exist_ok=True)
+    with open("logs/approve_project_trace.log", "a") as f:
+        f.write(f"FRONTEND: {payload.message}\n")
+    return {"status": "ok"}
 
 @app.patch("/sandbox/settings", response_model=SandboxState)
 def update_sandbox_settings(payload: SandboxSettings):

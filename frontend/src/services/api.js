@@ -11,7 +11,18 @@ async function request(path, options) {
   });
 
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    let errorMessage = `Request failed: ${response.status}`;
+    try {
+      const errorData = await response.json();
+      if (errorData && errorData.detail) {
+        errorMessage = typeof errorData.detail === 'string' 
+          ? errorData.detail 
+          : JSON.stringify(errorData.detail);
+      }
+    } catch (e) {
+      // Ignore JSON parse error, use default message
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
@@ -61,6 +72,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ conversation_id: conversationId }),
     }),
+
+  logTrace: (message) =>
+    fetch(`${getApiUrl()}/log_trace`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    }).catch(() => {}),
 
   // Sandbox
   getSandbox: () => request("/sandbox"),
