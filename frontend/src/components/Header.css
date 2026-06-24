@@ -1,0 +1,182 @@
+/* ==========================================================================
+   Header / Topbar — Command Center Style
+   ========================================================================== */
+
+.header-v2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding: var(--space-12) var(--space-32);
+  background: rgba(8, 11, 20, 0.6);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 56px;
+  z-index: 10;
+}
+
+/* ── Left: Breadcrumb / Title ────────────────────── */
+
+.header-v2-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+}
+
+.header-v2-breadcrumb {
+  font-size: 11px;
+  font-weight: var(--weight-medium);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.header-v2-title {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1;
+}
+
+.header-v2-sep {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  user-select: none;
+}
+
+/* ── Center: Search ──────────────────────────────── */
+
+.header-v2-center {
+  flex: 1;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.header-v2-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-8) var(--space-12);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  cursor: text;
+  transition: all var(--transition-fast);
+}
+
+.header-v2-search:hover {
+  border-color: var(--border-default);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.header-v2-search:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+}
+
+.header-v2-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.header-v2-search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.header-v2-search-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+.header-v2-shortcut {
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* ── Right: Status / Profile ─────────────────────── */
+
+.header-v2-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+.header-v2-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-full);
+  background: var(--status-success-bg);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  color: var(--status-success);
+  white-space: nowrap;
+}
+
+.header-v2-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--status-success);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.header-v2-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--bg-surface-active);
+  border: 1px solid var(--border-default);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.header-v2-avatar:hover {
+  border-color: var(--color-primary);
+}
+
+/* ── Responsive ──────────────────────────────────── */
+
+@media (max-width: 820px) {
+  .header-v2 {
+    padding: var(--space-12) var(--space-16);
+    flex-wrap: wrap;
+  }
+
+  .header-v2-center {
+    order: 3;
+    max-width: 100%;
+    width: 100%;
+    margin-top: var(--space-8);
+  }
+
+  .header-v2-shortcut {
+    display: none;
+  }
+}

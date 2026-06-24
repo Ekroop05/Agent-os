@@ -1,0 +1,436 @@
+/* ==========================================================================
+   Build Center (Workspaces v2)
+   ========================================================================== */
+
+   .build-center {
+    display: grid;
+    gap: var(--space-24);
+    animation: fadeIn var(--transition-normal) ease-out;
+  }
+  
+  /* ── Staggered entry ─────────────────────────────── */
+  
+  .bc-stagger-1 { animation: slideUp 0.4s ease-out 0.05s both; }
+  .bc-stagger-2 { animation: slideUp 0.4s ease-out 0.12s both; }
+  .bc-stagger-3 { animation: slideUp 0.4s ease-out 0.19s both; }
+  .bc-stagger-4 { animation: slideUp 0.4s ease-out 0.26s both; }
+  .bc-stagger-5 { animation: slideUp 0.4s ease-out 0.33s both; }
+  
+  /* ── Form ────────────────────────────────────────── */
+  
+  .bc-form-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-24);
+  }
+  
+  .bc-form-card h3 {
+    margin: 0 0 var(--space-16);
+    font-size: var(--text-lg);
+    color: var(--text-primary);
+  }
+  
+  .bc-form {
+    display: flex;
+    gap: var(--space-12);
+    align-items: center;
+  }
+  
+  .bc-form input {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-8) var(--space-12);
+    color: var(--text-primary);
+    transition: all var(--transition-fast);
+  }
+  
+  .bc-form input:focus {
+    border-color: var(--color-primary);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+  }
+  
+  .bc-form input[type="number"] {
+    max-width: 100px;
+  }
+  
+  .bc-form button {
+    padding: var(--space-8) var(--space-16);
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-weight: var(--weight-semibold);
+    transition: background var(--transition-fast);
+  }
+  
+  .bc-form button:hover {
+    background: var(--color-primary-hover);
+  }
+  
+  /* ── Workspace Selector ──────────────────────────── */
+  
+  .bc-selector {
+    display: flex;
+    gap: var(--space-16);
+    overflow-x: auto;
+    padding-bottom: var(--space-8);
+  }
+  
+  .bc-selector-tab {
+    padding: var(--space-12) var(--space-24);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-weight: var(--weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+  }
+  
+  .bc-selector-tab:hover {
+    border-color: var(--border-default);
+    color: var(--text-primary);
+  }
+  
+  .bc-selector-tab.active {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+  
+  /* ── Hero / Live Progress ────────────────────────── */
+  
+  .bc-hero {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-24);
+  }
+  
+  .bc-hero-main {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.04));
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-32);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+  }
+  
+  .bc-hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  
+  .bc-hero-title {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-bold);
+    color: var(--text-primary);
+    margin: 0 0 var(--space-8);
+  }
+  
+  .bc-hero-subtitle {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+  
+  .bc-hero-actions {
+    display: flex;
+    gap: var(--space-12);
+  }
+  
+  .bc-hero-btn {
+    padding: var(--space-8) var(--space-16);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+  
+  .bc-hero-btn-primary {
+    background: var(--color-primary);
+    color: white;
+    border: none;
+  }
+  .bc-hero-btn-primary:hover { background: var(--color-primary-hover); }
+  
+  .bc-hero-btn-danger {
+    background: transparent;
+    color: var(--status-danger);
+    border: 1px solid var(--status-danger);
+  }
+  .bc-hero-btn-danger:hover {
+    background: rgba(248, 113, 113, 0.1);
+  }
+  
+  .bc-progress-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-24);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-16);
+  }
+  
+  .bc-progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .bc-progress-title {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+  }
+  
+  .bc-progress-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-12);
+  }
+  
+  .bc-progress-stat {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .bc-progress-stat-val {
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-bold);
+    color: var(--text-primary);
+  }
+  
+  .bc-progress-stat-lbl {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+  }
+  
+  /* ── Agent Panel ─────────────────────────────────── */
+  
+  .bc-agents {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-16);
+  }
+  
+  .bc-agent-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-24);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .bc-agent-card.running {
+    border-color: rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.1);
+  }
+  
+  .bc-agent-card.running::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--color-primary);
+    animation: agentPulse 2s infinite;
+  }
+  
+  @keyframes agentPulse {
+    0% { opacity: 0.5; box-shadow: 0 0 5px var(--color-primary); }
+    50% { opacity: 1; box-shadow: 0 0 15px var(--color-primary); }
+    100% { opacity: 0.5; box-shadow: 0 0 5px var(--color-primary); }
+  }
+  
+  .bc-agent-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .bc-agent-name {
+    font-size: var(--text-md);
+    font-weight: var(--weight-bold);
+    color: var(--text-primary);
+  }
+  
+  .bc-agent-task {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    min-height: 40px;
+  }
+  
+  /* ── Three Column Grid (Tasks, Files, Timeline) ──── */
+  
+  .bc-three-col {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-24);
+  }
+  
+  .bc-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-24);
+    display: flex;
+    flex-direction: column;
+    max-height: 500px;
+  }
+  
+  .bc-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-16);
+    padding-bottom: var(--space-12);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  
+  .bc-panel-title {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+    margin: 0;
+  }
+  
+  .bc-panel-count {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+  }
+  
+  .bc-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding-right: var(--space-8);
+  }
+  
+  /* Stream Items */
+  .bc-stream-item {
+    padding: var(--space-12);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    animation: slideInRight 0.3s ease-out;
+  }
+  
+  .bc-stream-title {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    color: var(--text-primary);
+    margin-bottom: var(--space-4);
+  }
+  
+  .bc-stream-meta {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    display: flex;
+    justify-content: space-between;
+  }
+  
+  .bc-file-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-8);
+    padding: var(--space-8) var(--space-12);
+    background: rgba(34, 197, 94, 0.05);
+    border-radius: var(--radius-md);
+    color: var(--status-success);
+    font-family: monospace;
+    font-size: 13px;
+    animation: slideInRight 0.3s ease-out;
+  }
+  
+  .bc-timeline-item {
+    display: flex;
+    gap: var(--space-12);
+    padding: var(--space-8) 0;
+    position: relative;
+  }
+  
+  .bc-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 24px;
+    bottom: -8px;
+    width: 1px;
+    background: var(--border-subtle);
+  }
+  
+  .bc-timeline-item:last-child::before {
+    display: none;
+  }
+  
+  .bc-timeline-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    margin-top: 6px;
+    position: relative;
+    z-index: 2;
+  }
+  
+  .bc-timeline-content p {
+    margin: 0 0 2px 0;
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+  
+  .bc-timeline-content small {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+  }
+  
+  @keyframes slideInRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  /* ── Responsive ──────────────────────────────────── */
+  
+  @media (max-width: 1024px) {
+    .bc-hero {
+      grid-template-columns: 1fr;
+    }
+    .bc-three-col {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .bc-form {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .bc-form input[type="number"] {
+      max-width: none;
+    }
+    .bc-hero-header {
+      flex-direction: column;
+      gap: var(--space-16);
+    }
+  }
+  

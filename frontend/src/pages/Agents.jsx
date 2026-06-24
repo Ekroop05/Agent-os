@@ -16,30 +16,33 @@ export default function Agents({ data, setData }) {
   }
 
   return (
-    <div className="split-page">
-      <section className="agent-grid">
-        {data.agents.map((item) => (
-          <AgentCard
-            key={item.id}
-            agent={item}
-            onAction={handleAction}
-            onSelect={(selected) => setSelectedAgentId(selected.id)}
-          />
+    <div className="split-page" style={{ animation: "fadeIn var(--transition-normal) ease-out" }}>
+      <section className="agent-grid" style={{ gap: "var(--space-24)" }}>
+        {data.agents.map((item, idx) => (
+          <div key={item.id} style={{ animation: `slideUp 0.4s ease-out ${idx * 0.1}s both` }}>
+            <AgentCard
+              agent={item}
+              onAction={handleAction}
+              onSelect={(selected) => setSelectedAgentId(selected.id)}
+            />
+          </div>
         ))}
       </section>
 
       {agent && (
-        <section className="detail-panel">
-          <div className="section-heading">
-            <h2>{agent.name} Details</h2>
-            <span>{agent.uptime}</span>
+        <section className="dash-panel" style={{ animation: "slideUp 0.4s ease-out 0.2s both" }}>
+          <div className="dash-panel-header" style={{ marginBottom: "var(--space-24)" }}>
+            <h2 className="dash-panel-title" style={{ fontSize: "var(--text-xl)" }}>{agent.name} Details</h2>
+            <span className="dash-panel-badge">{agent.uptime}</span>
           </div>
 
-          <DetailBlock title="Role" items={[agent.role]} />
-          <DetailBlock title="Assigned Model" items={[agent.model]} />
-          <DetailBlock title="Current Task" items={[agent.current_task]} />
-          <DetailBlock title="Lifecycle State" items={[agent.status]} />
-          <DetailBlock title="Memory Usage" items={[`${agent.memory_usage}%`]} />
+          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-24)" }}>
+            <DetailBlock title="Role" items={[agent.role]} />
+            <DetailBlock title="Assigned Model" items={[agent.model]} />
+            <DetailBlock title="Current Task" items={[agent.current_task]} />
+            <DetailBlock title="Lifecycle State" items={[agent.status]} />
+            <DetailBlock title="Memory Usage" items={[`${agent.memory_usage}%`]} />
+          </div>
         </section>
       )}
     </div>
@@ -48,10 +51,10 @@ export default function Agents({ data, setData }) {
 
 function DetailBlock({ title, items }) {
   return (
-    <div className="detail-block">
-      <h3>{title}</h3>
+    <div>
+      <h3 style={{ margin: "0 0 var(--space-8)", fontSize: "var(--text-sm)", color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{title}</h3>
       {items.map((item) => (
-        <p key={item}>{item}</p>
+        <p key={item} style={{ margin: 0, color: "var(--text-secondary)", fontSize: "var(--text-md)" }}>{item}</p>
       ))}
     </div>
   );

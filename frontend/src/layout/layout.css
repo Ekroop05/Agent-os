@@ -1,0 +1,65 @@
+/* Layout Foundation Styles */
+
+.layout-app-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+.layout-sidebar {
+  width: 260px;
+  flex: 0 0 260px;
+  background-color: var(--bg-surface);
+  border-right: 1px solid var(--border-default);
+  display: flex;
+  flex-direction: column;
+  transition: width var(--transition-normal);
+  z-index: 20;
+}
+
+.layout-sidebar-header {
+  padding: var(--space-24);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.layout-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.layout-main-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0; /* allows text truncation in flex children */
+}
+
+.layout-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-16) var(--space-32);
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-default);
+  z-index: 10;
+}
+
+.layout-content-container {
+  flex: 1;
+  padding: var(--space-32);
+  overflow-y: auto;
+  position: relative;
+}
+
+/* Optional wrapper for page inner limits */
+.layout-content-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+}

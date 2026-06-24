@@ -1,0 +1,14 @@
+/* ==========================================================================
+   App Shell v2 — Refined background using design tokens
+   ========================================================================== */
+
+.app-shell-v2 {
+  display: flex;
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(139, 92, 246, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(59, 130, 246, 0.08), transparent),
+    var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}

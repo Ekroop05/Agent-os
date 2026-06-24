@@ -13,6 +13,7 @@ import Tasks from "./pages/Tasks";
 import Workspaces from "./pages/Workspaces";
 import { api } from "./services/api";
 import { connectChannel, setOnReconnect } from "./services/websocket";
+import "./App-v2.css";
 
 const pages = {
   "/": Dashboard,
@@ -257,7 +258,7 @@ export default function App() {
   }, [path]);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell app-shell-v2">
       <Sidebar 
         currentPath={path} 
         onNavigate={navigate} 

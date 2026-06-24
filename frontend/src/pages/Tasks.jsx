@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../services/api";
+import "./Tasks.css";
 
 const statuses = ["Pending", "Assigned", "Running", "Reviewing", "Blocked", "Completed", "Failed"];
 
@@ -19,11 +20,9 @@ const SECURITY_COLORS = {
   Approved: { bg: "rgba(34,197,94,0.2)", color: "#86efac" },
   Rejected: { bg: "rgba(248,113,113,0.2)", color: "#fca5a5" },
 };
-
 const DEFAULT_SECURITY_STYLE = { bg: "rgba(148,163,184,0.15)", color: "#94a3b8" };
 
 export default function Tasks({ data, setData }) {
-  // Filter to only valid task objects before any rendering
   const validTasks = (data?.tasks || []).filter(
     (t) => t && typeof t.id === "string" && typeof t.status === "string"
   );
@@ -35,6 +34,7 @@ export default function Tasks({ data, setData }) {
     assigned_agent: "Head Agent",
     priority: "Medium",
   });
+  
   const effectiveTaskId = selectedTaskId || validTasks[0]?.id;
   const task = validTasks.find((item) => item.id === effectiveTaskId) || validTasks[0];
 
@@ -58,14 +58,14 @@ export default function Tasks({ data, setData }) {
   const agents = data?.agents || [];
 
   return (
-    <div className="split-page">
-      <section className="table-panel">
-        <div className="section-heading">
-          <h2>Delegated Tasks</h2>
-          <span>{validTasks.length} tracked</span>
+    <div className="tasks-v2">
+      <section className="tasks-main-panel">
+        <div className="tasks-header">
+          <h2 className="tasks-title">Delegated Tasks</h2>
+          <span className="tasks-count">{validTasks.length} tracked</span>
         </div>
 
-        <form className="inline-form" onSubmit={createTask}>
+        <form className="tasks-form" onSubmit={createTask}>
           <input
             placeholder="Task title"
             value={draft.title}
@@ -98,58 +98,52 @@ export default function Tasks({ data, setData }) {
           <button type="submit">Create</button>
         </form>
 
-        <div className="task-table">
-          <div className="task-table-head">
+        <div className="tasks-table">
+          <div className="tasks-table-header">
             <span>Task</span>
             <span>Agent</span>
             <span>Priority</span>
             <span>Status</span>
-            <span>Security</span>
             <span>Created</span>
           </div>
-          {validTasks.map((item) => {
+          {validTasks.map((item, idx) => {
             const itemStatus = item.status || "Pending";
-            const securityStatus = item.security_status || "Pending";
-            const secStyle = SECURITY_COLORS[securityStatus] || DEFAULT_SECURITY_STYLE;
             return (
-              <button
-                className={`task-table-row ${item.id === effectiveTaskId ? "selected" : ""}`}
+              <div
+                className={`tasks-row ${item.id === effectiveTaskId ? "selected" : ""}`}
                 key={item.id}
-                type="button"
                 onClick={() => setSelectedTaskId(item.id)}
+                style={{ animation: `slideInRight 0.3s ease-out ${idx * 0.05}s both` }}
               >
-                <span>{item.title || "Untitled"}</span>
-                <span className="task-agent-name">{item.assigned_agent || "—"}</span>
-                <span>{item.priority || "Medium"}</span>
-                <span className={`status-pill ${itemStatus.toLowerCase()}`}>
-                  {STATUS_ICONS[itemStatus] || "○"} {itemStatus}
+                <span className="tasks-row-title" title={item.title || "Untitled"}>
+                  {item.title || "Untitled"}
                 </span>
-                <span>
-                  {securityStatus !== "Pending" && (
-                    <span
-                      className="security-badge-inline"
-                      style={{ background: secStyle.bg, color: secStyle.color }}
-                    >
-                      {securityStatus}
-                    </span>
-                  )}
+                <span className="tasks-row-agent">{item.assigned_agent || "—"}</span>
+                <span className="tasks-row-priority">{item.priority || "Medium"}</span>
+                <span className={`ui-status-pill ${itemStatus.toLowerCase()}`}>
+                  <span className="dot" aria-hidden="true"></span>
+                  {itemStatus}
                 </span>
-                <span>{item.created_at || "—"}</span>
-              </button>
+                <span className="tasks-row-agent">{item.created_at || "—"}</span>
+              </div>
             );
           })}
         </div>
       </section>
 
       {task && (
-        <section className="detail-panel">
-          <div className="section-heading">
-            <h2>{task.title || "Untitled"}</h2>
-            <span className={`status-pill ${(task.status || "pending").toLowerCase()}`}>
-              {STATUS_ICONS[task.status] || "○"} {task.status || "Pending"}
-            </span>
+        <section className="tasks-detail-panel" key={task.id}>
+          <div className="tasks-detail-header">
+            <div>
+              <h2 className="tasks-detail-title">{task.title || "Untitled"}</h2>
+              <span className={`ui-status-pill ${(task.status || "pending").toLowerCase()}`}>
+                <span className="dot" aria-hidden="true"></span>
+                {task.status || "Pending"}
+              </span>
+            </div>
           </div>
-          <div className="agent-actions">
+
+          <div className="tasks-actions">
             {statuses.map((status) => (
               <button
                 key={status}
@@ -161,61 +155,74 @@ export default function Tasks({ data, setData }) {
               </button>
             ))}
           </div>
-          <Detail title="Description" items={[task.description || "No description"]} />
-          <Detail title="Assigned Agent" items={[task.assigned_agent || "Unassigned"]} />
-          <Detail title="Priority" items={[task.priority || "Medium"]} />
-          <Detail title="Created" items={[task.created_at || "—"]} />
-          <Detail title="Completed" items={[task.completed_at || "Open"]} />
 
-          {/* Security Review Info */}
+          <div className="tasks-block">
+            <h3>Description</h3>
+            <p>{task.description || "No description provided."}</p>
+          </div>
+
+          <div className="tasks-block">
+            <h3>Assigned Agent</h3>
+            <p>{task.assigned_agent || "Unassigned"}</p>
+          </div>
+
+          <div className="tasks-block">
+            <h3>Priority</h3>
+            <p>{task.priority || "Medium"}</p>
+          </div>
+
+          <div className="tasks-block">
+            <h3>Timeline</h3>
+            <p>Created: {task.created_at || "—"}</p>
+            <p>Completed: {task.completed_at || "Open"}</p>
+          </div>
+
           {task.security_status && task.security_status !== "Pending" && (
-            <div className="detail-block">
+            <div className="tasks-block">
               <h3>Security Review</h3>
-              <p>
+              <div>
                 <span
-                  className="security-badge-inline"
+                  className="ui-status-pill"
                   style={{
                     background: (SECURITY_COLORS[task.security_status] || DEFAULT_SECURITY_STYLE).bg,
                     color: (SECURITY_COLORS[task.security_status] || DEFAULT_SECURITY_STYLE).color,
+                    display: "inline-flex"
                   }}
                 >
+                  <span className="dot" aria-hidden="true" style={{ background: (SECURITY_COLORS[task.security_status] || DEFAULT_SECURITY_STYLE).color }}></span>
                   {task.security_status}
                 </span>
-              </p>
-              {/* P5: Show warning for impossible states */}
+              </div>
               {task.status === "Failed" && task.security_status === "Approved" && (
-                <p className="security-notes" style={{ color: "#fca5a5" }}>
+                <p style={{ color: "var(--status-danger)", marginTop: "var(--space-8)" }}>
                   ⚠ Invalid state: Failed tasks cannot be Approved
                 </p>
               )}
-              {task.security_notes && <p className="security-notes">{task.security_notes}</p>}
+              {task.security_notes && <p style={{ marginTop: "var(--space-8)" }}>{task.security_notes}</p>}
             </div>
           )}
 
-          {/* Output Files */}
           {task.output_files && task.output_files.length > 0 && (
-            <div className="detail-block">
+            <div className="tasks-block">
               <h3>Output Files ({task.output_files.length})</h3>
-              <div className="output-files-list">
+              <div className="tasks-files">
                 {task.output_files.map((file) => (
-                  <p key={file} className="output-file-path">{file}</p>
+                  <div key={file} className="tasks-file-item">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="16" y1="13" x2="8" y2="13"></line>
+                      <line x1="16" y1="17" x2="8" y2="17"></line>
+                      <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    {file}
+                  </div>
                 ))}
               </div>
             </div>
           )}
         </section>
       )}
-    </div>
-  );
-}
-
-function Detail({ title, items }) {
-  return (
-    <div className="detail-block">
-      <h3>{title}</h3>
-      {(items || []).map((item) => (
-        <p key={item || "empty"}>{item || "—"}</p>
-      ))}
     </div>
   );
 }

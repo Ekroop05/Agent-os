@@ -1,0 +1,62 @@
+/* ==========================================================================
+   Skeleton Loading Animation & Styles
+   ========================================================================== */
+
+   @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  
+  .ui-skeleton-wrapper {
+    position: relative;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: var(--radius-md);
+  }
+  
+  .ui-skeleton-wrapper::after {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0) 0,
+      rgba(255, 255, 255, 0.05) 20%,
+      rgba(255, 255, 255, 0.08) 60%,
+      rgba(255, 255, 255, 0)
+    );
+    animation: shimmer 2s infinite;
+    content: '';
+  }
+  
+  /* ── Specific Skeleton Types ───────────────────────── */
+  
+  .ui-skeleton-line {
+    height: 14px;
+    margin-bottom: var(--space-8);
+  }
+  
+  .ui-skeleton-line:last-child {
+    margin-bottom: 0;
+  }
+  
+  .ui-skeleton-card {
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-24);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    gap: var(--space-12);
+  }
+  
+  .ui-skeleton-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+  }
+  

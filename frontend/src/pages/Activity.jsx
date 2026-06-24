@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import "./Activity.css";
 
 const types = ["all", "AGENT", "TASK", "WORKSPACE", "SYSTEM"];
 const severities = ["all", "info", "warning", "error", "success"];
@@ -31,50 +32,58 @@ export default function Activity({ data, visibilityMode }) {
   const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   return (
-    <section className="table-panel">
-      <div className="toolbar">
-        <input
-          aria-label="Search activity"
-          placeholder="Search activity"
-          value={query}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setPage(1);
-          }}
-        />
-        <select aria-label="Filter type" value={type} onChange={(event) => setType(event.target.value)}>
-          {types.map((item) => (
-            <option key={item} value={item}>{item}</option>
-          ))}
-        </select>
-        <select aria-label="Filter severity" value={severity} onChange={(event) => setSeverity(event.target.value)}>
-          {severities.map((item) => (
-            <option key={item} value={item}>{item}</option>
-          ))}
-        </select>
-      </div>
+    <div className="activity-v2">
+      <section className="activity-panel">
+        <div className="activity-toolbar">
+          <input
+            aria-label="Search activity"
+            placeholder="Search activity"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+          />
+          <select aria-label="Filter type" value={type} onChange={(event) => setType(event.target.value)}>
+            {types.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+          <select aria-label="Filter severity" value={severity} onChange={(event) => setSeverity(event.target.value)}>
+            {severities.map((item) => (
+              <option key={item} value={item}>{item}</option>
+            ))}
+          </select>
+        </div>
 
-      <div className="activity-timeline">
-        {pageItems.map((event) => (
-          <article className="timeline-event" key={event.id}>
-            <span className={`activity-dot ${event.severity}`} />
-            <div>
-              <h3>{event.message}</h3>
-              <p>{event.timestamp} / {event.source} / {event.type} / {event.severity}</p>
-            </div>
-          </article>
-        ))}
-      </div>
+        <div className="activity-feed">
+          {pageItems.map((event, idx) => (
+            <article 
+              className="activity-event" 
+              key={event.id}
+              style={{ animation: `slideUp 0.3s ease-out ${idx * 0.05}s both` }}
+            >
+              <div className={`activity-event-dot ${event.severity}`} aria-hidden="true" />
+              <div className="activity-event-content">
+                <h3 className="activity-event-message">{event.message}</h3>
+                <p className="activity-event-meta">
+                  {event.timestamp} / <span>{event.source}</span> / {event.type}
+                </p>
+              </div>
+            </article>
+          ))}
+        </div>
 
-      <div className="pager">
-        <button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>
-          Previous
-        </button>
-        <span>Page {page} of {pageCount}</span>
-        <button type="button" disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>
-          Next
-        </button>
-      </div>
-    </section>
+        <div className="activity-pager">
+          <button type="button" disabled={page === 1} onClick={() => setPage((value) => value - 1)}>
+            Previous
+          </button>
+          <span>Page {page} of {pageCount}</span>
+          <button type="button" disabled={page === pageCount} onClick={() => setPage((value) => value + 1)}>
+            Next
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
