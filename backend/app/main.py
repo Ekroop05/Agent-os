@@ -27,6 +27,11 @@ from app.schemas import (
     WorkspaceArchiveEntry,
     WorkspaceCreate,
     MCPExecuteRequest,
+    AnalyzeProjectRequest,
+    ProjectAnalysis,
+    ProjectContextUpdate,
+    SnapshotCreateRequest,
+    SnapshotRestoreRequest,
 )
 from pydantic import BaseModel
 
@@ -44,6 +49,9 @@ from app.services.spec_engine import spec_engine
 from app.services.system_service import system_service
 from app.services.task_service import task_service
 from app.services.workspace_service import workspace_service
+from app.services.project_analyzer import project_analyzer
+from app.services.project_context import project_context
+from app.services.workspace_snapshot import workspace_snapshot
 
 # Import MCP modules to register tools
 from app.mcp.registry import mcp_registry
@@ -570,3 +578,71 @@ async def stream_channel(channel: str, websocket: WebSocket, initial_messages: l
             await websocket.receive_text()
     except WebSocketDisconnect:
         websocket_manager.disconnect(channel, websocket)
+
+
+# ── Sprint 5: Project Editing & Snapshots Endpoints ───────────────────────
+
+@app.post("/project/analyze", response_model=ProjectAnalysis)
+def analyze_project(payload: AnalyzeProjectRequest):
+    analysis = project_analyzer.analyze(payload.project_path)
+    if "error" in analysis:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=analysis["error"])
+    return analysis
+
+
+@app.get("/project/context/{workspace_id}")
+def get_project_context(workspace_id: str):
+    return project_context.get_context(workspace_id)
+
+
+@app.post("/project/context/{workspace_id}")
+def update_project_context(workspace_id: str, payload: ProjectContextUpdate):
+    return project_context.update_context(
+        workspace_id,
+        **{k: v for k, v in payload.model_dump().items() if v is not None}
+    )
+
+
+@app.post("/snapshots/create")
+def create_snapshot(payload: SnapshotCreateRequest):
+    res = workspace_snapshot.create_snapshot(
+        payload.workspace_id,
+        payload.workspace_path,
+        payload.label
+    )
+    if "error" in res:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+
+@app.get("/snapshots/{workspace_id}")
+def list_snapshots(workspace_id: str, workspace_path: str = ""):
+    return workspace_snapshot.list_snapshots(workspace_id, workspace_path)
+
+
+@app.post("/snapshots/restore")
+def restore_snapshot(payload: SnapshotRestoreRequest):
+    res = workspace_snapshot.restore_snapshot(
+        payload.workspace_id,
+        payload.workspace_path,
+        payload.snapshot_id
+    )
+    if "error" in res:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+
+
+@app.get("/snapshots/compare/{workspace_id}/{snapshot_id}")
+def compare_snapshot(workspace_id: str, snapshot_id: str, workspace_path: str = ""):
+    if not workspace_path:
+        workspace = workspace_service.get(workspace_id)
+        workspace_path = workspace.path
+    res = workspace_snapshot.compare_snapshot(workspace_path, snapshot_id)
+    if "error" in res:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail=res["error"])
+    return res
+

@@ -167,5 +167,31 @@
     "workspace_id": "workspace-mcdonals",
     "conversation_id": null,
     "error": null
+  },
+  "job-50f8526b": {
+    "job_id": "job-50f8526b",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-06-26 13:36:42",
+    "updated_at": "2026-06-26 13:48:24",
+    "completed_at": "2026-06-26 13:48:24",
+    "workspace_id": "workspace-flowdesk",
+    "conversation_id": null,
+    "error": null
+  },
+  "job-6e0f551c": {
+    "job_id": "job-6e0f551c",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-06-26 15:11:52",
+    "updated_at": "2026-06-26 15:45:01",
+    "completed_at": "2026-06-26 15:45:01",
+    "workspace_id": "workspace-flowdesk-v2",
+    "conversation_id": null,
+    "error": null
   }
 }

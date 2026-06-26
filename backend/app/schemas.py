@@ -105,6 +105,11 @@ class SystemStatus(BaseModel):
     active_agents: int
     active_tasks: int
     active_workspaces: int
+    disk_usage: int = 0
+    process_memory_mb: float = 0.0
+    system_uptime: str = "0m"
+    python_processes: int = 0
+    agent_os_pid: int = 0
 
 
 class Event(BaseModel):
@@ -273,3 +278,47 @@ class TimelineEvent(BaseModel):
     workspace_id: str | None = None
     job_id: str | None = None
 
+
+# ── Sprint 5: Project Editing & Snapshots Schemas ─────────────────────────
+
+class AnalyzeProjectRequest(BaseModel):
+    project_path: str
+
+
+class ProjectAnalysis(BaseModel):
+    project_path: str
+    project_name: str
+    framework: str
+    dependencies: dict
+    file_tree: list[dict]
+    file_counts: dict
+    total_files: int
+    components: list[str]
+    pages: list[str]
+    routes: list[str]
+    services: list[str]
+    assets: list[str]
+    configs: list[str]
+    component_count: int
+    page_count: int
+    route_count: int
+    service_count: int
+    risk_assessment: dict
+
+
+class ProjectContextUpdate(BaseModel):
+    project_name: str | None = None
+    framework: str | None = None
+    architecture: str | None = None
+
+
+class SnapshotCreateRequest(BaseModel):
+    workspace_id: str
+    workspace_path: str
+    label: str = ""
+
+
+class SnapshotRestoreRequest(BaseModel):
+    workspace_id: str
+    workspace_path: str
+    snapshot_id: str

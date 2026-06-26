@@ -126,4 +126,71 @@ export const api = {
 
   // Sprint 4.5: Timeline
   getTimeline: (limit = 100) => request(`/timeline?limit=${limit}`),
+  // ── Sprint 5: Project Editing & Snapshots ──────────────────────────────
+  analyzeProject: async (projectPath) => {
+    const res = await fetch(`${API_URL}/project/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ project_path: projectPath }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Analysis failed");
+    }
+    return res.json();
+  },
+
+  getProjectContext: async (workspaceId) => {
+    const res = await fetch(`${API_URL}/project/context/${workspaceId}`);
+    return res.json();
+  },
+
+  updateProjectContext: async (workspaceId, data) => {
+    const res = await fetch(`${API_URL}/project/context/${workspaceId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    return res.json();
+  },
+
+  createSnapshot: async (workspaceId, workspacePath, label = "") => {
+    const res = await fetch(`${API_URL}/snapshots/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspace_id: workspaceId, workspace_path: workspacePath, label }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Snapshot failed");
+    }
+    return res.json();
+  },
+
+  listSnapshots: async (workspaceId, workspacePath = "") => {
+    const res = await fetch(`${API_URL}/snapshots/${workspaceId}?workspace_path=${encodeURIComponent(workspacePath)}`);
+    return res.json();
+  },
+
+  restoreSnapshot: async (workspaceId, workspacePath, snapshotId) => {
+    const res = await fetch(`${API_URL}/snapshots/restore`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ workspace_id: workspaceId, workspace_path: workspacePath, snapshot_id: snapshotId }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Restore failed");
+    }
+    return res.json();
+  },
+
+  compareSnapshot: async (workspaceId, snapshotId, workspacePath = "") => {
+    const res = await fetch(`${API_URL}/snapshots/compare/${workspaceId}/${snapshotId}?workspace_path=${encodeURIComponent(workspacePath)}`);
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Compare failed");
+    }
+    return res.json();
+  },
 };

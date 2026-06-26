@@ -1,4 +1,5 @@
 import './Dashboard.css';
+import SystemMonitor from "../components/workspace/SystemMonitor";
 
 const AGENT_ROLES = [
   { name: "Architect", role: "Plans architecture and decomposes requirements into tasks." },
@@ -82,6 +83,15 @@ export default function Dashboard({ data }) {
       </section>
 
       {/* ── Agent Overview ────────────────────────── */}
+      <section className="dash-section dash-stagger-2">
+        <div className="dash-section-header">
+          <h2 className="dash-section-title">System Health</h2>
+          <span className="dash-badge">Live</span>
+        </div>
+        <SystemMonitor systemStatus={data.systemStatus} />
+      </section>
+
+      {/* ── Agent Overview ────────────────────────── */}
       <section className="dash-stagger-3">
         <h3 className="dash-section-title">Agent Overview</h3>
         <div className="dash-agents-grid">
@@ -151,14 +161,7 @@ export default function Dashboard({ data }) {
       {/* ── System Health ─────────────────────────── */}
       <section className="dash-stagger-5">
         <h3 className="dash-section-title">System Health</h3>
-        <div className="dash-panel">
-          <div className="dash-health-grid">
-            <HealthMeter label="CPU Usage" value={systemStatus?.cpu_percent ?? 24} />
-            <HealthMeter label="Memory" value={systemStatus?.memory_percent ?? 38} />
-            <HealthMeter label="Disk" value={systemStatus?.disk_percent ?? 52} />
-            <HealthMeter label="Agent Availability" value={agents.length > 0 ? Math.round((agents.filter((a) => a.status !== "Error").length / agents.length) * 100) : 100} />
-          </div>
-        </div>
+        <SystemMonitor systemStatus={data?.systemStatus} />
       </section>
 
       {/* ── Metrics Footer ────────────────────────── */}
