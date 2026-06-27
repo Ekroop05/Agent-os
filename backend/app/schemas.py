@@ -109,6 +109,8 @@ class SystemStatus(BaseModel):
     process_memory_mb: float = 0.0
     system_uptime: str = "0m"
     python_processes: int = 0
+    agent_os_processes: int = 1
+    available_memory_gb: float = 0.0
     agent_os_pid: int = 0
 
 

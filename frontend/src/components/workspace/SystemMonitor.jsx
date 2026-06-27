@@ -9,6 +9,8 @@ export default function SystemMonitor({ systemStatus }) {
     uptime: "0m",
     os_mem: 0,
     py_procs: 0,
+    avail_gb: 0,
+    agent_procs: 0,
   });
 
   useEffect(() => {
@@ -20,6 +22,8 @@ export default function SystemMonitor({ systemStatus }) {
         uptime: systemStatus.system_uptime || "0m",
         os_mem: systemStatus.process_memory_mb || 0,
         py_procs: systemStatus.python_processes || 0,
+        avail_gb: systemStatus.available_memory_gb || 0,
+        agent_procs: systemStatus.agent_os_processes || 0,
       });
     }
   }, [systemStatus]);
@@ -41,8 +45,8 @@ export default function SystemMonitor({ systemStatus }) {
           <div className={`sm-meter-fill ${getStatusClass(metrics.cpu)}`} style={{ width: `${metrics.cpu}%` }}></div>
         </div>
         <div className="sm-details">
-          <span>System Load</span>
           <span>{metrics.py_procs} Python Procs</span>
+          <span>{metrics.agent_procs} Agent Procs</span>
         </div>
       </div>
 
@@ -55,14 +59,14 @@ export default function SystemMonitor({ systemStatus }) {
           <div className={`sm-meter-fill ${getStatusClass(metrics.ram)}`} style={{ width: `${metrics.ram}%` }}></div>
         </div>
         <div className="sm-details">
-          <span>System RAM</span>
+          <span>{metrics.avail_gb} GB Avail</span>
           <span>Agent OS: {metrics.os_mem} MB</span>
         </div>
       </div>
 
       <div className="sm-card">
         <div className="sm-header">
-          <span className="sm-title">Disk Usage</span>
+          <span className="sm-title">Disk Storage</span>
           <span className="sm-value">{metrics.disk}%</span>
         </div>
         <div className="sm-meter-bg">
@@ -70,7 +74,21 @@ export default function SystemMonitor({ systemStatus }) {
         </div>
         <div className="sm-details">
           <span>Root Partition</span>
-          <span>Uptime: {metrics.uptime}</span>
+          <span>Active Mount</span>
+        </div>
+      </div>
+
+      <div className="sm-card">
+        <div className="sm-header">
+          <span className="sm-title">System Uptime</span>
+          <span className="sm-value">{metrics.uptime}</span>
+        </div>
+        <div className="sm-meter-bg">
+          <div className="sm-meter-fill safe" style={{ width: "100%" }}></div>
+        </div>
+        <div className="sm-details">
+          <span>WebSocket Live</span>
+          <span>3s Pulse ✓</span>
         </div>
       </div>
     </div>

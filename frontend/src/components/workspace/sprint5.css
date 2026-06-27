@@ -166,8 +166,14 @@
 /* ── F9: System Monitor ────────────────────────────────── */
 .sm-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-16);
+}
+
+@media (max-width: 1000px) {
+  .sm-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .sm-card {

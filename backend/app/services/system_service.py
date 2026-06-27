@@ -36,9 +36,11 @@ class SystemService:
         except Exception:
             cpu_usage = 0
 
+        available_memory_gb = 0.0
         try:
             mem = psutil.virtual_memory()
             memory_usage = int(mem.percent)
+            available_memory_gb = round(mem.available / (1024 * 1024 * 1024), 1)
         except Exception:
             memory_usage = 0
 
@@ -67,15 +69,22 @@ class SystemService:
         except Exception:
             uptime = self._format_uptime(time.time() - self._start_time)
 
-        # Count Python processes
+        # Count Python & Agent OS processes
         python_processes = 0
+        agent_os_processes = 0
         try:
-            for proc in psutil.process_iter(["name"]):
+            for proc in psutil.process_iter(["name", "cmdline"]):
                 name = (proc.info.get("name") or "").lower()
-                if "python" in name:
+                cmdline = proc.info.get("cmdline") or []
+                cmd_str = " ".join(cmdline).lower()
+                if "python" in name or "python" in cmd_str:
                     python_processes += 1
+                    if "uvicorn" in cmd_str or "agent" in cmd_str or "main:app" in cmd_str or proc.pid == os.getpid():
+                        agent_os_processes += 1
         except Exception:
             pass
+        if agent_os_processes == 0:
+            agent_os_processes = 1
 
         return SystemStatus(
             cpu_usage=min(cpu_usage, 100),
@@ -88,6 +97,8 @@ class SystemService:
             process_memory_mb=process_memory_mb,
             system_uptime=uptime,
             python_processes=python_processes,
+            agent_os_processes=agent_os_processes,
+            available_memory_gb=available_memory_gb,
             agent_os_pid=os.getpid(),
         )
 

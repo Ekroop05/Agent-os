@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 
 from fastapi import HTTPException
 
@@ -30,9 +31,59 @@ ARCHITECT_MODEL = "qwen3:14b"
 
 class ArchitectService:
 
+    def classify_intent(self, message: str) -> str:
+        msg = message.lower().strip()
+        project_verbs = ["build", "create", "generate", "develop", "modify", "edit", "improve", "make", "design", "scaffold", "update", "change", "add"]
+        if any(v in msg for v in project_verbs):
+            if any(v in msg for v in ["modify", "edit", "improve", "update", "change", "add"]):
+                return "Project Modification"
+            return "Project Creation"
+
+        if msg in {"hi", "hello", "hey", "good morning", "good afternoon", "good evening", "how are you?", "how are you", "yo", "sup", "greetings"} or (len(msg) < 15 and any(msg.startswith(g) for g in ["hi", "hello", "hey"])):
+            return "Greeting"
+        if msg in {"help", "help me", "how does this work", "how do i start", "what can you do", "what can you do?"}:
+            return "Help"
+        if msg in {"thanks", "thank you", "cool", "awesome", "nice", "ok", "okay", "got it"}:
+            return "General Conversation"
+        if msg.endswith("?") or any(msg.startswith(q) for q in ["what is", "who are", "can you", "do you", "why"]):
+            return "Question"
+
+        if len(msg) > 25:
+            return "Project Creation"
+        return "Unknown"
+
     # ── Main chat entry point ─────────────────────────────────────────────
 
     def chat(self, message: str, conversation_id: str | None = None) -> ArchitectChatResponse:
+        intent = self.classify_intent(message)
+        existing_state = project_state_manager.get(conversation_id) if conversation_id else None
+        has_active_project = existing_state and (existing_state.get("requirements_progress", 0) > 0 or existing_state.get("project_name"))
+
+        if intent in {"Greeting", "General Conversation", "Help", "Question", "Unknown"} and not has_active_project:
+            cid = conversation_id or str(uuid.uuid4())
+            if intent == "Greeting":
+                reply = "Hello! I'm the Architect Agent.\n\nI can help you plan and build websites, applications and software projects.\n\nWhat would you like to create today?"
+            elif intent == "Help":
+                reply = "I'm the Architect Agent. To get started, describe what you want to build (e.g., 'Build me a SaaS dashboard' or 'Create a portfolio website'). I'll extract your requirements and generate a plan!"
+            else:
+                reply = "I'm the Architect Agent, your technical co-founder. Tell me what application, website, or software project you'd like to create, and let's get started!"
+            
+            return ArchitectChatResponse(
+                conversation_id=cid,
+                reply=reply,
+                requirements_complete=False,
+                approval_required=False,
+                current_phase="Discovering Requirements",
+                requirements_progress=0,
+                confidence_score=0,
+            )
+
+        if intent in {"Greeting", "General Conversation"} and has_active_project:
+            reply = "Hello! I'm ready to continue with your project. You can review the state panel on the right and click Approve Project, or tell me what features to add or modify."
+            project_state_manager.add_message(existing_state, "user", message)
+            project_state_manager.add_message(existing_state, "assistant", reply)
+            return self._build_response(existing_state, reply)
+
         state = project_state_manager.get_or_create(conversation_id)
         project_state_manager.add_message(state, "user", message)
 

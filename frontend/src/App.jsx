@@ -257,6 +257,10 @@ export default function App() {
     return label.charAt(0).toUpperCase() + label.slice(1);
   }, [path]);
 
+  const activeBuildWs = useMemo(() => {
+    return (state.workspaces || []).find((ws) => ["Building", "Reviewing"].includes(ws.status));
+  }, [state.workspaces]);
+
   return (
     <div className="app-shell app-shell-v2">
       <Sidebar 
@@ -267,10 +271,17 @@ export default function App() {
       />
       <div className="main-shell">
         <Header title={title} systemStatus={state.systemStatus} />
+        {activeBuildWs && (
+          <div className="persistent-build-banner" onClick={() => navigate("/workspaces")}>
+            <span className="pulse-dot">🟣</span>
+            <span>Building "{activeBuildWs.project_name || activeBuildWs.name}"</span>
+            <span className="banner-action">View Live ➔</span>
+          </div>
+        )}
         <main className="page-content">
           {state.error && <div className="system-alert">{state.error}</div>}
           <ErrorBoundary fallbackLabel={title}>
-            <CurrentPage data={state} setData={setState} visibilityMode={state.visibilityMode} />
+            <CurrentPage data={state} setData={setState} onNavigate={navigate} visibilityMode={state.visibilityMode} />
           </ErrorBoundary>
         </main>
         <AgentStatusBar

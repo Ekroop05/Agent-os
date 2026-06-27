@@ -27,9 +27,22 @@ export default function Workspaces({ data, setData }) {
   const activity = data?.activity || [];
   const buildEvents = data?.buildEvents || [];
 
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(workspaces[0]?.id);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(() => {
+    const active = workspaces.find((ws) => ["Building", "Reviewing"].includes(ws?.status));
+    return active ? active.id : workspaces[0]?.id;
+  });
   const [draft, setDraft] = useState({ name: "", description: "", active_agents: 1 });
   const [archive, setArchive] = useState([]);
+
+  useEffect(() => {
+    if (!workspaces || workspaces.length === 0) return;
+    const active = workspaces.find((ws) => ["Building", "Reviewing"].includes(ws?.status));
+    if (active && selectedWorkspaceId !== active.id) {
+      setSelectedWorkspaceId(active.id);
+    } else if (!selectedWorkspaceId && workspaces[0]) {
+      setSelectedWorkspaceId(workspaces[0].id);
+    }
+  }, [workspaces]);
 
   const effectiveWorkspaceId = selectedWorkspaceId || workspaces[0]?.id;
   const workspace = workspaces.find((item) => item.id === effectiveWorkspaceId) || workspaces[0];

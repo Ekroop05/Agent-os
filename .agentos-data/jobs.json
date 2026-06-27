@@ -193,5 +193,18 @@
     "workspace_id": "workspace-flowdesk-v2",
     "conversation_id": null,
     "error": null
+  },
+  "job-677fc230": {
+    "job_id": "job-677fc230",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-06-27 10:27:07",
+    "updated_at": "2026-06-27 10:59:54",
+    "completed_at": "2026-06-27 10:59:54",
+    "workspace_id": "workspace-flowdesk-ai",
+    "conversation_id": null,
+    "error": null
   }
 }

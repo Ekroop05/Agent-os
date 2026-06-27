@@ -1,46 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../services/api";
-
-const initialMessages = [
-  {
-    role: "architect",
-    content:
-      "Hey there — I'm the Architect. Think of me as your technical co-founder.\n\nTell me what you want to build, and I'll shape it into a real architecture with tasks, tech stack, and a development plan.\n\nWhat's the idea?",
-  },
-];
+import { architectStore } from "../services/architectStore";
 
 export default function Architect({ data, setData }) {
-  const [conversationId, setConversationId] = useState(() =>
-    sessionStorage.getItem("agentos.architect.conversationId") || ""
-  );
-  const [messages, setMessages] = useState(() => {
-    const saved = sessionStorage.getItem("agentos.architect.messages");
-    return saved ? JSON.parse(saved) : initialMessages;
-  });
+  const [, forceRender] = useState({});
   const [draft, setDraft] = useState("");
-  const [status, setStatus] = useState(() => {
-    const saved = sessionStorage.getItem("agentos.architect.status");
-    return saved ? JSON.parse(saved) : {};
-  });
-  const [isTyping, setIsTyping] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
-  const [approvalPhase, setApprovalPhase] = useState("");
-  const [error, setError] = useState("");
+  const inputRef = useRef(null);
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    sessionStorage.setItem("agentos.architect.messages", JSON.stringify(messages));
-  }, [messages]);
-
-  useEffect(() => {
-    sessionStorage.setItem("agentos.architect.status", JSON.stringify(status));
-  }, [status]);
-
-  useEffect(() => {
-    if (conversationId) {
-      sessionStorage.setItem("agentos.architect.conversationId", conversationId);
+    const unsub = architectStore.subscribe(() => forceRender({}));
+    if (sessionStorage.getItem("agentos.architect.focus") === "true") {
+      sessionStorage.removeItem("agentos.architect.focus");
+      architectStore.reset();
     }
-  }, [conversationId]);
+    inputRef.current?.focus();
+    return unsub;
+  }, []);
+
+  const { conversationId, messages, status, isTyping, isApproving, approvalPhase, error } = architectStore;
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -48,96 +26,32 @@ export default function Architect({ data, setData }) {
 
   useEffect(() => {
     if (!isApproving || !data || !data.activity) return;
-    
     const lastActivity = data.activity[0];
     if (lastActivity) {
       if (lastActivity.event_type === "WORKSPACE_CREATED") {
-        setApprovalPhase("Generating Task Graph...");
+        architectStore.setApprovalPhase("Generating Task Graph...");
       } else if (lastActivity.event_type === "TASK_CREATED") {
-        setApprovalPhase("Creating Tasks...");
+        architectStore.setApprovalPhase("Creating Tasks...");
       } else if (lastActivity.event_type === "BUILD_STARTED") {
-        setApprovalPhase("Starting Build...");
+        architectStore.setApprovalPhase("Starting Build...");
       }
     }
   }, [data?.activity, isApproving]);
 
-  async function sendMessage(event) {
+  function sendMessage(event) {
     event.preventDefault();
-    const message = draft.trim();
-    if (!message || isTyping || isApproving) return;
-
+    if (!draft.trim() || isTyping || isApproving) return;
+    const msg = draft;
     setDraft("");
-    setError("");
-    setMessages((current) => [...current, { role: "user", content: message }]);
-    setIsTyping(true);
-
-    try {
-      const response = await api.architectChat(message, conversationId || undefined);
-      setConversationId(response.conversation_id);
-      setStatus(response);
-      setMessages((current) => [...current, { role: "architect", content: response.reply }]);
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setIsTyping(false);
-    }
+    architectStore.sendMessage(msg);
   }
 
-  async function approveProject() {
-    api.logTrace("BUTTON_CLICKED");
-    api.logTrace("API_REQUEST_SENT");
-    setIsApproving(true);
-    setApprovalPhase("Approving Project...");
-    setError("");
-    try {
-      const response = await api.approveArchitecture(conversationId);
-      api.logTrace("API_RESPONSE_RECEIVED");
-      setStatus((current) => ({
-        ...current,
-        approved: true,
-        approval_required: false,
-        current_phase: "Project Ready",
-        confidence_score: 100,
-      }));
-      setMessages((current) => [
-        ...current,
-        {
-          role: "architect",
-          content: `Approved! Workspace **"${response.workspace.name}"** has been created with ${response.tasks.length} planning tasks.\n\nYou can now head to the Workspaces and Tasks pages to see everything. Let's build something great.`,
-        },
-      ]);
-      setData((current) => ({
-        ...current,
-        workspaces: upsertById(current.workspaces, response.workspace),
-        tasks: mergeMany(current.tasks, response.tasks),
-        sandbox: current.sandbox
-          ? {
-              ...current.sandbox,
-              workspace_mappings: upsertById(current.sandbox.workspace_mappings, {
-                workspace_id: response.workspace.id,
-                id: response.workspace.id,
-                name: response.workspace.name,
-                path: response.workspace.path,
-              }),
-            }
-          : current.sandbox,
-      }));
-    } catch (requestError) {
-      api.logTrace("API_RESPONSE_ERROR");
-      setError(requestError.message);
-    } finally {
-      setIsApproving(false);
-    }
+  function approveProject() {
+    architectStore.approveProject(setData);
   }
 
   function startNewConversation() {
-    sessionStorage.removeItem("agentos.architect.conversationId");
-    sessionStorage.removeItem("agentos.architect.messages");
-    sessionStorage.removeItem("agentos.architect.status");
-    setConversationId("");
-    setMessages(initialMessages);
-    setStatus({});
-    setError("");
+    architectStore.reset();
   }
 
   const architecture = status.architecture;
@@ -168,6 +82,7 @@ export default function Architect({ data, setData }) {
 
         <form className="chat-composer" onSubmit={sendMessage}>
           <textarea
+            ref={inputRef}
             aria-label="Message Architect"
             placeholder="Describe your project or answer the Architect's questions…"
             value={draft}

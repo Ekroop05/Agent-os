@@ -68,6 +68,22 @@ logger = logging.getLogger("agent_os")
 
 app = FastAPI(title="Agent OS API", version="0.7.0")
 
+import asyncio
+
+async def _system_broadcaster_loop():
+    while True:
+        await asyncio.sleep(3)
+        if websocket_manager.connection_count("system") > 0:
+            try:
+                await websocket_manager.broadcast("system", system_service.status().model_dump())
+            except Exception:
+                pass
+
+@app.on_event("startup")
+async def start_system_broadcaster():
+    asyncio.create_task(_system_broadcaster_loop())
+
+
 
 # ── Task Routing ──────────────────────────────────────────────────────────
 

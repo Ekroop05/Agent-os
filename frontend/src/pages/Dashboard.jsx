@@ -8,7 +8,7 @@ const AGENT_ROLES = [
   { name: "Security", role: "Scans for vulnerabilities and enforces security policy." },
 ];
 
-export default function Dashboard({ data }) {
+export default function Dashboard({ data, onNavigate }) {
   const agents = data?.agents || [];
   const tasks = data?.tasks || [];
   const workspaces = data?.workspaces || [];
@@ -22,6 +22,21 @@ export default function Dashboard({ data }) {
   ).length;
   const completedTasks = tasks.filter((t) => t && t.status === "Completed").length;
   const successRate = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 100;
+
+  const activeBuildWs = workspaces.find(
+    (ws) => ws && ws.status && ["Building", "Reviewing"].includes(ws.status)
+  );
+  const activeAgent = agents.find((a) => a && a.status === "Running");
+  const runningTask = tasks.find((t) => t && ["Running", "Reviewing"].includes(t.status));
+
+  function handleNewProject() {
+    sessionStorage.setItem("agentos.architect.focus", "true");
+    onNavigate?.("/architect");
+  }
+
+  function handleViewWorkspaces() {
+    onNavigate?.("/workspaces");
+  }
 
   // Build agent cards from live data, falling back to role descriptions
   const agentCards = AGENT_ROLES.map((role) => {
@@ -53,10 +68,10 @@ export default function Dashboard({ data }) {
               : "Multi-agent AI runtime — design, build, test, and ship software autonomously."}
           </p>
           <div className="dash-hero-actions">
-            <button className="dash-hero-btn dash-hero-btn-primary" type="button">
+            <button className="dash-hero-btn dash-hero-btn-primary" type="button" onClick={handleNewProject}>
               New Project
             </button>
-            <button className="dash-hero-btn dash-hero-btn-secondary" type="button">
+            <button className="dash-hero-btn dash-hero-btn-secondary" type="button" onClick={handleViewWorkspaces}>
               View Workspaces
             </button>
           </div>
@@ -73,6 +88,36 @@ export default function Dashboard({ data }) {
         </div>
       </section>
 
+      {/* ── Active Build Execution Overview ───────── */}
+      <section className="dash-section dash-stagger-1">
+        <div className="dash-section-header">
+          <h2 className="dash-section-title">Active Build Overview</h2>
+          <span className="dash-badge">Live</span>
+        </div>
+        {activeBuildWs ? (
+          <div className="active-build-overview-grid">
+            <div className="dash-overview-item">
+              <span className="dash-overview-label">Current Active Build</span>
+              <strong className="dash-overview-val">{activeBuildWs.project_name || activeBuildWs.name}</strong>
+            </div>
+            <div className="dash-overview-item">
+              <span className="dash-overview-label">Current Workspace</span>
+              <strong className="dash-overview-val">{activeBuildWs.name}</strong>
+            </div>
+            <div className="dash-overview-item">
+              <span className="dash-overview-label">Current Agent</span>
+              <strong className="dash-overview-val">{activeAgent?.name || "Builder Agent"}</strong>
+            </div>
+            <div className="dash-overview-item">
+              <span className="dash-overview-label">Current Task</span>
+              <strong className="dash-overview-val">{runningTask?.title || "Executing build tasks..."}</strong>
+            </div>
+          </div>
+        ) : (
+          <div className="dash-empty no-build-box">No active build.</div>
+        )}
+      </section>
+
       {/* ── Stat Cards ────────────────────────────── */}
       <section className="dash-stats-row dash-stagger-2">
         <StatCard label="Active Agents" value={activeAgents} />
@@ -82,13 +127,13 @@ export default function Dashboard({ data }) {
         <StatCard label="Activity Events" value={activity.length} />
       </section>
 
-      {/* ── Agent Overview ────────────────────────── */}
+      {/* ── System Health ─────────────────────────── */}
       <section className="dash-section dash-stagger-2">
         <div className="dash-section-header">
           <h2 className="dash-section-title">System Health</h2>
           <span className="dash-badge">Live</span>
         </div>
-        <SystemMonitor systemStatus={data.systemStatus} />
+        <SystemMonitor systemStatus={data?.systemStatus} />
       </section>
 
       {/* ── Agent Overview ────────────────────────── */}
@@ -141,7 +186,7 @@ export default function Dashboard({ data }) {
           </div>
           <div className="dash-workspace-list">
             {workspaces.length > 0 ? workspaces.slice(0, 6).map((ws) => (
-              <div className="dash-workspace-row" key={ws.id}>
+              <div className="dash-workspace-row" key={ws.id} onClick={() => onNavigate?.(`/workspaces`)}>
                 <span className="dash-workspace-name">{ws.project_name || ws.name || "Unnamed"}</span>
                 <div className="dash-workspace-meta">
                   <span className={`ui-status-pill ${(ws.status || "planning").toLowerCase()}`}>
@@ -158,19 +203,13 @@ export default function Dashboard({ data }) {
         </div>
       </section>
 
-      {/* ── System Health ─────────────────────────── */}
-      <section className="dash-stagger-5">
-        <h3 className="dash-section-title">System Health</h3>
-        <SystemMonitor systemStatus={data?.systemStatus} />
-      </section>
-
       {/* ── Metrics Footer ────────────────────────── */}
       <section className="dash-stats-row dash-stagger-6">
         <StatCard label="Total Agents" value={agents.length} />
         <StatCard label="Total Tasks" value={tasks.length} />
         <StatCard label="Completed" value={completedTasks} />
         <StatCard label="Active Workspaces" value={activeWorkspaces} />
-        <StatCard label="Uptime" value={systemStatus?.uptime || "–"} />
+        <StatCard label="Uptime" value={systemStatus?.system_uptime || "–"} />
       </section>
     </div>
   );
