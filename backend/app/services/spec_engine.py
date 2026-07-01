@@ -26,6 +26,8 @@ THEME_CONTEXT: dict[str, dict] = {
         "content_domain": "Superheroes, powers, missions, team rosters, epic battles",
         "suggested_sections": ["Hero Banner with dramatic imagery", "Character/Hero Showcase Cards", "Team Roster", "Mission Timeline", "Powers & Abilities"],
         "style_keywords": ["dramatic gradients", "bold typography", "comic-book energy", "metallic accents"],
+        "animations": ["heroic-entrance", "card-flip", "power-glow", "slide-in"],
+        "typography": "Bebas Neue for headings, Inter for body",
     },
     "Space / Sci-Fi": {
         "color_palette": "Deep space black (#0b0d17), nebula purple (#7b2ff7), cyan glow (#00d4ff), starlight white (#e8e8e8)",
@@ -33,6 +35,8 @@ THEME_CONTEXT: dict[str, dict] = {
         "content_domain": "Planets, galaxies, space exploration, technology, stars",
         "suggested_sections": ["Cosmic Hero Banner", "Planet/Galaxy Explorer", "Mission Control Dashboard", "Star Map", "Discovery Feed"],
         "style_keywords": ["glowing borders", "particle effects", "dark backgrounds", "neon accents"],
+        "animations": ["float", "glow-pulse", "star-twinkle", "parallax-drift"],
+        "typography": "Orbitron for headings, Inter for body",
     },
     "Anime / Manga": {
         "color_palette": "Sakura pink (#ff6b9d), midnight blue (#1a1a2e), vivid purple (#c061cb), warm white (#faf0e6)",
@@ -47,6 +51,8 @@ THEME_CONTEXT: dict[str, dict] = {
         "content_domain": "Games, tournaments, players, teams, leaderboards, streams",
         "suggested_sections": ["Featured Game Banner", "Tournament Brackets", "Player Profiles", "Leaderboard", "Live Streams"],
         "style_keywords": ["neon glow effects", "dark mode", "sharp edges", "RGB accents"],
+        "animations": ["neon-flicker", "slide-in", "score-counter", "pulse"],
+        "typography": "Rajdhani for headings, Inter for body",
     },
     "Fitness / Health": {
         "color_palette": "Energetic orange (#ff6b35), deep teal (#00b4d8), dark slate (#2d3436), clean white (#f8f9fa)",
@@ -54,6 +60,8 @@ THEME_CONTEXT: dict[str, dict] = {
         "content_domain": "Workouts, exercises, nutrition, progress tracking, wellness",
         "suggested_sections": ["Motivational Hero Banner", "Workout Cards", "Progress Tracker", "Nutrition Guide", "Trainer Profiles"],
         "style_keywords": ["bold typography", "rounded elements", "progress bars", "energy gradients"],
+        "animations": ["pulse", "count-up", "slide-in", "progress-fill"],
+        "typography": "Poppins for headings, Inter for body",
     },
     "Food / Culinary": {
         "color_palette": "Warm amber (#f59e0b), rich brown (#78350f), cream (#fefce8), olive green (#65a30d)",
@@ -61,6 +69,8 @@ THEME_CONTEXT: dict[str, dict] = {
         "content_domain": "Recipes, menus, ingredients, chefs, restaurants, food culture",
         "suggested_sections": ["Featured Dish Hero", "Menu Section", "Chef's Special", "About the Kitchen", "Reservation/Contact"],
         "style_keywords": ["warm tones", "food photography emphasis", "elegant typography", "cozy atmosphere"],
+        "animations": ["fade-in", "slide-up", "hover-zoom", "steam-effect"],
+        "typography": "Playfair Display for headings, Lato for body",
     },
     "Music": {
         "color_palette": "Electric violet (#8b5cf6), midnight (#111827), hot magenta (#ec4899), silver (#9ca3af)",
@@ -110,6 +120,8 @@ THEME_CONTEXT: dict[str, dict] = {
         "content_domain": "Products, features, integrations, documentation, team",
         "suggested_sections": ["Product Hero Banner", "Feature Showcase", "Integration Grid", "Pricing Table", "About/Team"],
         "style_keywords": ["glassmorphism", "subtle gradients", "monospace accents", "geometric shapes"],
+        "animations": ["fade-in", "slide-up", "hover-glow", "typing-effect"],
+        "typography": "Inter for headings, JetBrains Mono for code accents",
     },
     "Nature / Environment": {
         "color_palette": "Forest green (#166534), earth brown (#92400e), sky blue (#38bdf8), leaf (#86efac)",
@@ -165,13 +177,13 @@ THEME_CONTEXT: dict[str, dict] = {
 # ── Default feature sets by project type ──────────────────────────────────
 
 _DEFAULT_FEATURES: dict[str, list[str]] = {
-    "Website": ["Hero Section", "Navigation", "About Section", "Contact Section", "Footer", "Responsive Layout"],
+    "Website": ["Hero Section", "Navigation", "Features Section", "About Section", "Testimonials", "Call to Action", "Contact Section", "Footer", "Responsive Layout"],
     "Web Application": ["Navigation", "Dashboard", "User Interface", "Data Display", "Settings", "Responsive Layout"],
     "Dashboard": ["Navigation", "Metrics Overview", "Data Tables", "Charts", "Filters", "Responsive Layout"],
-    "Landing Page": ["Hero Section", "Features Section", "Call to Action", "Testimonials", "Footer"],
-    "Portfolio Website": ["Hero Section", "Projects Showcase", "Skills Section", "About Me", "Contact Form", "Footer"],
-    "Blog": ["Hero Section", "Article List", "Article Detail", "Categories", "Search", "Footer"],
-    "E-Commerce Platform": ["Hero Section", "Product Catalog", "Product Detail", "Shopping Cart", "Checkout", "Navigation", "Footer"],
+    "Landing Page": ["Hero Section", "Features Section", "Call to Action", "Testimonials", "Contact Section", "Footer", "Responsive Layout"],
+    "Portfolio Website": ["Hero Section", "Projects Showcase", "Skills Section", "About Section", "Testimonials", "Contact Section", "Footer", "Responsive Layout"],
+    "Blog": ["Hero Section", "Article List", "Article Detail", "Categories", "Search", "Footer", "Responsive Layout"],
+    "E-Commerce Platform": ["Hero Section", "Product Catalog", "Product Detail", "Shopping Cart", "Checkout", "Navigation", "Footer", "Responsive Layout"],
 }
 
 
@@ -278,15 +290,25 @@ class SpecEngine:
 
         return issues
 
-    def enrich_task_description(self, task_title: str, task_description: str, spec: dict) -> str:
-        """Inject spec context into a task description so the Builder has full context."""
+    def enrich_task_description(
+        self,
+        task_title: str,
+        task_description: str,
+        spec: dict,
+        acceptance_criteria: list[str] | None = None,
+        task_uid: str | None = None,
+        engineering_metadata: dict | None = None,
+    ) -> str:
+        """Inject spec context, acceptance criteria, and engineering standards into a task description so the Builder has full context."""
         theme = spec.get("theme", "General")
         theme_ctx = spec.get("theme_context", {})
+
+        uid_str = f"  Task UID: {task_uid}\n" if task_uid else ""
 
         context_block = "\n".join([
             "",
             "── Project Context ──────────────────────────────────────",
-            f"  Project: {spec.get('project_name', 'Unknown')}",
+            f"{uid_str}  Project: {spec.get('project_name', 'Unknown')}",
             f"  Theme: {theme}",
             f"  Purpose: {spec.get('purpose', 'General')}",
             f"  Target Users: {spec.get('target_users', 'General Visitors')}",
@@ -304,7 +326,23 @@ class SpecEngine:
 
         context_block += "\n─────────────────────────────────────────────────────────"
 
-        return f"{task_description}\n{context_block}"
+        ac_block = ""
+        if acceptance_criteria:
+            ac_lines = "\n".join(f"  ✓ {ac}" for ac in acceptance_criteria)
+            ac_block = f"\n\n── Acceptance Criteria ──────────────────────────\n{ac_lines}\n──────────────────────────────────────────────────"
+
+        # ── Initiative 2: Engineering Standards Block ─────────────────
+        standards_block = ""
+        if engineering_metadata and engineering_metadata.get("engineering_standards"):
+            from app.services.engineering_standards import engineering_standards_engine
+            # Build a minimal task dict for formatting
+            format_task = {
+                "title": task_title,
+                "engineering_metadata": engineering_metadata,
+            }
+            standards_block = engineering_standards_engine.format_standards_block(format_task)
+
+        return f"{task_description}{ac_block}\n{context_block}{standards_block}"
 
     # ── Internal helpers ──────────────────────────────────────────────────
 
@@ -336,6 +374,8 @@ class SpecEngine:
             "content_domain": theme,
             "suggested_sections": ["Hero Section", "Content Showcase", "Features", "About", "Contact"],
             "style_keywords": ["clean design", "modern typography", "subtle gradients", "responsive layout"],
+            "animations": ["fade-in", "slide-up", "hover-scale", "stagger-reveal"],
+            "typography": "Inter for headings, system-ui for body",
         }
 
 

@@ -25,6 +25,11 @@ from app.extractors.requirement_extractor import requirement_extractor
 from app.schemas import ArchitectChatResponse
 from app.services.llm_service import generate_response
 from app.state.project_state import project_state_manager, MAX_CLARIFICATION_ROUNDS
+import requests
+import logging
+
+logger = logging.getLogger("architect_service")
+LLM_RETRY_COUNT = 2
 
 ARCHITECT_MODEL = "qwen3:14b"
 
@@ -195,14 +200,40 @@ class ArchitectService:
         # Build prompt with full state context
         prompt = self._build_prompt(state, ask_about)
 
-        try:
-            reply = generate_response(ARCHITECT_MODEL, prompt).strip()
-            # Strip <think>...</think> tags
-            reply = re.sub(r"<think>.*?</think>", "", reply, flags=re.DOTALL).strip()
-            if reply and len(reply) > 10:
-                return reply
-        except Exception:
-            pass
+        # Retry loop
+        for attempt in range(LLM_RETRY_COUNT + 1):
+            try:
+                reply = generate_response(ARCHITECT_MODEL, prompt).strip()
+                # Strip <think>...</think> tags
+                reply = re.sub(r"<think>.*?</think>", "", reply, flags=re.DOTALL).strip()
+                if reply and len(reply) > 10:
+                    return reply
+                else:
+                    failure_reason = "Empty or too short response"
+            except requests.exceptions.Timeout as e:
+                failure_reason = f"Timeout: {str(e)}"
+            except requests.exceptions.ConnectionError as e:
+                failure_reason = f"Connection failure: {str(e)}"
+            except requests.exceptions.HTTPError as e:
+                failure_reason = f"Model unavailable or HTTP Error: {str(e)}"
+            except json.JSONDecodeError as e:
+                failure_reason = f"Malformed JSON output: {str(e)}"
+            except KeyError as e:
+                failure_reason = f"Parsing failure (missing key): {str(e)}"
+            except Exception as e:
+                failure_reason = f"Unknown exception: {str(e)}"
+                
+            logger.warning(
+                f"LLM failure in _conversational_reply (Attempt {attempt+1}/{LLM_RETRY_COUNT+1}). "
+                f"Reason: {failure_reason}"
+            )
+        
+        logger.error(
+            f"Fallback triggered in _conversational_reply. "
+            f"Conversation ID: {state.get('conversation_id')}. "
+            f"Extraction Result: {state}. "
+            f"Reason: {failure_reason}"
+        )
 
         # Fallback: rule-based response
         return self._fallback_reply(state, ask_about)
@@ -269,10 +300,9 @@ Respond naturally as the Architect."""
             known_items.append(f"with a {state['theme']} theme")
         if state.get("purpose"):
             known_items.append(f"for {state['purpose']}")
-        if known_items:
-            parts.append(f"Great — so we're building {' '.join(known_items)}.")
-        else:
-            parts.append("Interesting idea! Let me understand it better.")
+            
+        parts.append("I couldn't confidently determine every project detail automatically.")
+        parts.append("Let's clarify a few things before continuing.")
 
         # Ask about missing fields
         field_questions = {
@@ -328,14 +358,38 @@ JSON keys:
 Return 5-8 tasks in task_breakdown covering the full build.
 Do NOT wrap the JSON in markdown code fences."""
 
-        try:
-            raw = generate_response(ARCHITECT_MODEL, prompt)
-            # Strip think tags
-            raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-            parsed = json.loads(self._extract_json(raw))
-            return self._normalize(parsed, state)
-        except Exception:
-            return self._fallback_architecture(state)
+        for attempt in range(LLM_RETRY_COUNT + 1):
+            try:
+                raw = generate_response(ARCHITECT_MODEL, prompt)
+                # Strip think tags
+                raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+                parsed = json.loads(self._extract_json(raw))
+                return self._normalize(parsed, state)
+            except requests.exceptions.Timeout as e:
+                failure_reason = f"Timeout: {str(e)}"
+            except requests.exceptions.ConnectionError as e:
+                failure_reason = f"Connection failure: {str(e)}"
+            except requests.exceptions.HTTPError as e:
+                failure_reason = f"Model unavailable or HTTP Error: {str(e)}"
+            except json.JSONDecodeError as e:
+                failure_reason = f"Malformed JSON output: {str(e)}"
+            except ValueError as e:
+                failure_reason = f"Parsing failure: {str(e)}"
+            except Exception as e:
+                failure_reason = f"Unknown exception: {str(e)}"
+                
+            logger.warning(
+                f"LLM failure in _generate_architecture (Attempt {attempt+1}/{LLM_RETRY_COUNT+1}). "
+                f"Reason: {failure_reason}"
+            )
+            
+        logger.error(
+            f"Fallback triggered in _generate_architecture. "
+            f"Conversation ID: {state.get('conversation_id')}. "
+            f"Extraction Result: {state}. "
+            f"Reason: {failure_reason}"
+        )
+        return self._fallback_architecture(state)
 
     def _extract_json(self, raw: str) -> str:
         cleaned = re.sub(r"```(?:json)?\s*", "", raw).replace("```", "")

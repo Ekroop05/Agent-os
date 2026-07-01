@@ -75,24 +75,24 @@ _PURPOSE_PATTERNS: list[tuple[str, str]] = [
     (r"education|learn|teach|course|tutorial", "Educational"),
     (r"sell|shop|buy|purchase|store|product", "E-Commerce"),
     (r"social|community|connect|network", "Social / Community"),
-    (r"manage|organize|track|admin", "Management"),
-    (r"inform|news|blog|article|content", "Informational"),
+    (r"manage|management|organize|organizer|track|admin", "Management"),
+    (r"inform|information|news|blog|article|content", "Informational"),
 ]
 
 # ── User patterns ─────────────────────────────────────────────────────────
 
 _USER_PATTERNS: list[tuple[str, str]] = [
-    (r"recruiter|employer|hiring", "Recruiters and Employers"),
-    (r"student|learner", "Students"),
-    (r"developer|programmer|engineer", "Developers"),
-    (r"customer|buyer|shopper", "Customers"),
-    (r"admin|administrator|manager", "Administrators"),
-    (r"visitor|viewer|browser|public|everyone|general|anybody|anyone", "General Visitors"),
-    (r"team|employee|staff|internal", "Internal Team"),
-    (r"kid|children|child|young", "Children / Young Users"),
-    (r"gamer|player", "Gamers"),
-    (r"patient|doctor", "Healthcare Users"),
-    (r"client", "Clients"),
+    (r"recruiters?|employers?|hiring", "Recruiters and Employers"),
+    (r"students?|learners?", "Students"),
+    (r"developers?|programmers?|engineers?", "Developers"),
+    (r"customers?|buyers?|shoppers?", "Customers"),
+    (r"admins?|administrators?|managers?", "Administrators"),
+    (r"visitors?|viewers?|browsers?|public|everyone|general|anybody|anyone", "General Visitors"),
+    (r"teams?|employees?|staff|internal", "Internal Team"),
+    (r"kids?|children|child|young", "Children / Young Users"),
+    (r"gamers?|players?", "Gamers"),
+    (r"patients?|doctors?", "Healthcare Users"),
+    (r"clients?", "Clients"),
 ]
 
 # ── Feature extraction ────────────────────────────────────────────────────
@@ -198,29 +198,29 @@ class RequirementExtractor:
 
         # ── Project type ──────────────────────────────────────────────
         if not current_state.get("project_type"):
-            for pattern, ptype in _PROJECT_TYPE_MAP.items():
-                if pattern in lowered:
+            for pattern, ptype in sorted(_PROJECT_TYPE_MAP.items(), key=lambda x: len(x[0]), reverse=True):
+                if re.search(rf"\b(?:{pattern})\b", lowered):
                     updates["project_type"] = ptype
                     break
 
         # ── Theme ─────────────────────────────────────────────────────
         if not current_state.get("theme"):
             for pattern, theme in _THEME_PATTERNS:
-                if re.search(pattern, lowered):
+                if re.search(rf"\b(?:{pattern})\b", lowered):
                     updates["theme"] = theme
                     break
 
         # ── Purpose ───────────────────────────────────────────────────
         if not current_state.get("purpose"):
             for pattern, purpose in _PURPOSE_PATTERNS:
-                if re.search(pattern, lowered):
+                if re.search(rf"\b(?:{pattern})\b", lowered):
                     updates["purpose"] = purpose
                     break
 
         # ── Target users ──────────────────────────────────────────────
         if not current_state.get("target_users"):
             for pattern, users in _USER_PATTERNS:
-                if re.search(pattern, lowered):
+                if re.search(rf"\b(?:{pattern})\b", lowered):
                     updates["target_users"] = users
                     break
 
@@ -228,7 +228,7 @@ class RequirementExtractor:
         new_features = []
         existing = set(current_state.get("core_features") or [])
         for pattern, feature in _FEATURE_PATTERNS:
-            if re.search(pattern, lowered) and feature not in existing:
+            if re.search(rf"\b(?:{pattern})\b", lowered) and feature not in existing:
                 new_features.append(feature)
         if new_features:
             updates["core_features"] = new_features
@@ -236,7 +236,7 @@ class RequirementExtractor:
         # ── Frontend ──────────────────────────────────────────────────
         if not current_state.get("frontend"):
             for pattern, tech in _FRONTEND_PATTERNS.items():
-                if pattern in lowered:
+                if re.search(rf"\b(?:{pattern})\b", lowered):
                     updates["frontend"] = tech
                     break
 
@@ -247,7 +247,7 @@ class RequirementExtractor:
                 updates["backend"] = False
             else:
                 for pattern, tech in _BACKEND_PATTERNS.items():
-                    if pattern in lowered:
+                    if re.search(rf"\b(?:{pattern})\b", lowered):
                         updates["backend"] = tech
                         break
 
@@ -261,7 +261,7 @@ class RequirementExtractor:
                 updates["database"] = False
             else:
                 for pattern, tech in _DATABASE_PATTERNS.items():
-                    if pattern in lowered:
+                    if re.search(rf"\b(?:{pattern})\b", lowered):
                         updates["database"] = tech
                         break
 
@@ -283,8 +283,8 @@ class RequirementExtractor:
                 "no deployment": "No Deployment", "none": "No Deployment",
                 "skip": "No Deployment",
             }
-            for pattern, target in deploy_map.items():
-                if pattern in lowered:
+            for pattern, target in sorted(deploy_map.items(), key=lambda x: len(x[0]), reverse=True):
+                if re.search(rf"\b(?:{re.escape(pattern)})\b", lowered):
                     updates["deployment"] = target
                     break
 

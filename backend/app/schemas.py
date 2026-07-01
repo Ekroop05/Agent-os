@@ -38,6 +38,18 @@ class Task(BaseModel):
     output_files: list[str] = Field(default_factory=list)
     security_status: str = "Pending"          # Pending | Reviewing | Approved | Rejected
     security_notes: str | None = None
+    # Engineering Planning Metadata (Initiative 1)
+    task_uid: str | None = None
+    epic: str | None = None
+    feature: str | None = None
+    story: str | None = None
+    objective: str | None = None
+    expected_output: str | None = None
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    complexity: str | None = None
+    estimated_context: list[str] = Field(default_factory=list)
+    context_dependencies: list[str] = Field(default_factory=list)
+    engineering_metadata: dict | None = None
 
 
 class TaskCreate(BaseModel):
@@ -46,6 +58,18 @@ class TaskCreate(BaseModel):
     assigned_agent: str
     priority: str = "Medium"
     workspace_id: str | None = None
+    # Engineering Planning Metadata (Initiative 1)
+    task_uid: str | None = None
+    epic: str | None = None
+    feature: str | None = None
+    story: str | None = None
+    objective: str | None = None
+    expected_output: str | None = None
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    complexity: str | None = None
+    estimated_context: list[str] = Field(default_factory=list)
+    context_dependencies: list[str] = Field(default_factory=list)
+    engineering_metadata: dict | None = None
 
 
 class TaskUpdate(BaseModel):
@@ -62,6 +86,18 @@ class TaskUpdate(BaseModel):
     security_status: str | None = None
     security_notes: str | None = None
     workspace_id: str | None = None
+    # Engineering Planning Metadata (Initiative 1)
+    task_uid: str | None = None
+    epic: str | None = None
+    feature: str | None = None
+    story: str | None = None
+    objective: str | None = None
+    expected_output: str | None = None
+    acceptance_criteria: list[str] | None = None
+    complexity: str | None = None
+    estimated_context: list[str] | None = None
+    context_dependencies: list[str] | None = None
+    engineering_metadata: dict | None = None
 
 
 class Workspace(BaseModel):

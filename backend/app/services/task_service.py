@@ -96,6 +96,15 @@ class TaskService:
             raise HTTPException(status_code=404, detail="Task not found")
         return task
 
+    def get_by_uid(self, uid: str) -> Task | None:
+        """Find a task by its logical task_uid."""
+        for task in self.tasks.values():
+            # If the Task schema has a task_uid attribute or it's stored in metadata
+            if getattr(task, "task_uid", None) == uid:
+                return task
+            # Or if it's stored inside an extra dictionary (if applicable)
+        return None
+
     def create(self, payload: TaskCreate) -> Task:
         task_id = f"task-{len(self.tasks) + 1:03}"
         task = Task(

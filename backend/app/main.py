@@ -291,6 +291,7 @@ async def approve_architecture(payload: ArchitectApprovalRequest):
     from app.services.task_decomposer import task_decomposer
     from app.services.task_validator import task_validator
     from app.services.task_graph import task_graph
+    from app.services.planning_engine import planning_engine
 
     state = architect_service.approve(payload.conversation_id)
     try:
@@ -323,12 +324,15 @@ async def approve_architecture(payload: ArchitectApprovalRequest):
         # Write spec to the workspace
         spec_engine.write_spec(workspace.path, spec)
 
-        # ── Sprint M1: Atomic Task Decomposition ──────────────────────────
+        # ── Sprint M1 & Initiative 1: Hierarchical Planning Engine & Decomposition ──
         architecture_tasks = architecture.get("task_breakdown", [])
         original_titles = [t.get("title", "") for t in architecture_tasks]
 
+        # Step 0: Generate hierarchical engineering plan (Epics, Features, UIDs, Acceptance Criteria)
+        enriched_coarse = planning_engine.plan(architecture_tasks, spec)
+
         # Step 1: Decompose coarse tasks into atomic micro-tasks
-        atomic_tasks = task_decomposer.decompose(architecture_tasks, spec)
+        atomic_tasks = task_decomposer.decompose(enriched_coarse, spec)
 
         # Step 2: Validate atomic tasks (reject vague, duplicate, planning tasks)
         validation = task_validator.validate(atomic_tasks, original_titles=original_titles)
@@ -347,10 +351,15 @@ async def approve_architecture(payload: ArchitectApprovalRequest):
         for item in validation.accepted:
             task_title = item.get("title", "Atomic task")
             base_desc = item.get("description", "Generated from atomic decomposition.")
-            
-            # Enrich task description with project context
-            enriched_desc = spec_engine.enrich_task_description(task_title, base_desc, spec)
-            
+            task_uid = item.get("task_uid")
+            ac = item.get("acceptance_criteria", [])
+
+            # Enrich task description with project context and acceptance criteria
+            enriched_desc = spec_engine.enrich_task_description(
+                task_title, base_desc, spec, acceptance_criteria=ac, task_uid=task_uid,
+                engineering_metadata=item.get("engineering_metadata"),
+            )
+
             task = task_service.create(
                 TaskCreate(
                     title=task_title,
@@ -358,6 +367,17 @@ async def approve_architecture(payload: ArchitectApprovalRequest):
                     assigned_agent=_route_task_to_agent(task_title),
                     priority=item.get("priority", "Medium"),
                     workspace_id=workspace.id,
+                    task_uid=task_uid,
+                    epic=item.get("epic"),
+                    feature=item.get("feature"),
+                    story=item.get("story"),
+                    objective=item.get("objective"),
+                    expected_output=item.get("expected_output"),
+                    acceptance_criteria=ac,
+                    complexity=item.get("complexity"),
+                    estimated_context=item.get("estimated_context", []),
+                    context_dependencies=item.get("context_dependencies", []),
+                    engineering_metadata=item.get("engineering_metadata"),
                 )
             )
             tasks.append(task)

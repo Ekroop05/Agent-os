@@ -56,10 +56,36 @@ class TaskGraph:
         str
             The absolute path to the written JSON file.
         """
-        # Build dependency graph
+        # Build dependency graph and hierarchy
         dependency_graph = {}
+        hierarchy: dict[str, dict[str, dict[str, list[str]]]] = {}
+        complexity_dist: dict[str, int] = {"XS": 0, "S": 0, "M": 0, "L": 0, "XL": 0}
+        context_graph: dict[str, list[str]] = {}
+
         for task in final_tasks:
-            dependency_graph[task["title"]] = task.get("dependencies", [])
+            title = task["title"]
+            dependency_graph[title] = task.get("dependencies", [])
+
+            epic = task.get("epic") or "General"
+            feature = task.get("feature") or "General"
+            story = task.get("story") or title
+            uid = task.get("task_uid") or title
+
+            if epic not in hierarchy:
+                hierarchy[epic] = {}
+            if feature not in hierarchy[epic]:
+                hierarchy[epic][feature] = {}
+            if story not in hierarchy[epic][feature]:
+                hierarchy[epic][feature][story] = []
+            hierarchy[epic][feature][story].append(uid)
+
+            comp = task.get("complexity", "S")
+            complexity_dist[comp] = complexity_dist.get(comp, 0) + 1
+
+            for ctx in task.get("estimated_context", []):
+                if ctx not in context_graph:
+                    context_graph[ctx] = []
+                context_graph[ctx].append(uid)
 
         # Build the full graph document
         graph = {
@@ -67,18 +93,33 @@ class TaskGraph:
             "architecture_tasks": [
                 t.get("title", "Unknown") for t in architecture_tasks
             ],
+            "hierarchy": hierarchy,
             "expansion_log": expansion_log,
             "final_tasks": [
                 {
+                    "task_uid": t.get("task_uid"),
                     "title": t["title"],
                     "type": t.get("type", "unknown"),
+                    "epic": t.get("epic"),
+                    "feature": t.get("feature"),
+                    "story": t.get("story"),
+                    "acceptance_criteria": t.get("acceptance_criteria", []),
+                    "complexity": t.get("complexity", "S"),
+                    "estimated_context": t.get("estimated_context", []),
                     "expected_output": t.get("expected_output", ""),
                     "dependencies": t.get("dependencies", []),
                     "priority": t.get("priority", "Medium"),
+                    # Initiative 2: Engineering Standards trace
+                    "standards_profile": (t.get("engineering_metadata") or {}).get("standards_profile"),
+                    "required_deliverables": (t.get("engineering_metadata") or {}).get("required_deliverables", []),
+                    "testing_expectations": (t.get("engineering_metadata") or {}).get("testing_expectations", []),
+                    "security_expectations": (t.get("engineering_metadata") or {}).get("security_expectations", []),
+                    "has_engineering_standards": bool((t.get("engineering_metadata") or {}).get("engineering_standards")),
                 }
                 for t in final_tasks
             ],
             "dependency_graph": dependency_graph,
+            "context_graph": context_graph,
             "validation_report": validation_report,
             "stats": {
                 "original_count": len(architecture_tasks),
@@ -99,6 +140,7 @@ class TaskGraph:
                 "final_count": len(final_tasks),
                 "rejected_count": validation_report.get("rejected_count", 0),
                 "warnings": validation_report.get("warnings", []),
+                "complexity_distribution": complexity_dist,
             },
         }
 

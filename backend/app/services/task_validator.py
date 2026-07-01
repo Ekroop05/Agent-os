@@ -108,6 +108,7 @@ class TaskValidator:
         """
         result = ValidationResult()
         seen_titles: set[str] = set()
+        seen_uids: set[str] = set()
         original_set = {t.strip().lower() for t in (original_titles or [])}
 
         for task in tasks:
@@ -142,12 +143,43 @@ class TaskValidator:
             elif title_lower in original_set:
                 rejection_reason = f"Recursive — matches original coarse task: '{title}'"
 
+            # ── Check 7: Complexity check ─────────────────────────────
+            complexity = task.get("complexity")
+            if not rejection_reason and complexity and complexity not in {"XS", "S", "M", "L", "XL"}:
+                rejection_reason = f"Invalid complexity '{complexity}': '{title}'"
+
+            # ── Check 8: Duplicate UID check ──────────────────────────
+            uid = task.get("task_uid")
+            if not rejection_reason and uid:
+                if uid in seen_uids:
+                    rejection_reason = f"Duplicate task_uid '{uid}': '{title}'"
+                else:
+                    seen_uids.add(uid)
+
             if rejection_reason:
                 result.rejected.append({"task": task, "reason": rejection_reason})
                 logger.info("Rejected task: %s", rejection_reason)
             else:
                 seen_titles.add(title_lower)
+                if uid:
+                    seen_uids.add(uid)
                 result.accepted.append(task)
+                if not task.get("acceptance_criteria"):
+                    result.warnings.append(f"Task missing acceptance criteria: '{title}'")
+                if not task.get("expected_output"):
+                    result.warnings.append(f"Task missing expected output: '{title}'")
+
+                # ── Check 9: Engineering Standards Gate (Initiative 2) ────
+                # Soft gate — warnings only to avoid disrupting existing flows.
+                meta = task.get("engineering_metadata") or {}
+                if not meta.get("engineering_standards"):
+                    result.warnings.append(f"Task missing engineering standards: '{title}'")
+                if not meta.get("required_deliverables"):
+                    result.warnings.append(f"Task missing required deliverables: '{title}'")
+                if not meta.get("testing_expectations"):
+                    result.warnings.append(f"Task missing testing expectations: '{title}'")
+                if not meta.get("security_expectations"):
+                    result.warnings.append(f"Task missing security expectations: '{title}'")
 
         # ── Warnings for potential issues ─────────────────────────────
         if len(result.accepted) == 0 and len(tasks) > 0:
@@ -157,6 +189,9 @@ class TaskValidator:
             result.warnings.append(
                 f"Very high task count ({len(result.accepted)}) — verify this is intentional"
             )
+
+        if self._has_cycle(result.accepted):
+            result.warnings.append("Circular dependency cycle detected in accepted tasks DAG")
 
         logger.info(
             "Validation complete: %d accepted, %d rejected, %d warnings",
@@ -202,6 +237,30 @@ class TaskValidator:
     def _is_planning_task(self, title_lower: str) -> bool:
         """Check if a title represents a planning task."""
         return any(pv in title_lower for pv in _PLANNING_VERBS)
+
+    def _has_cycle(self, tasks: list[dict]) -> bool:
+        """Detect circular dependencies in task list."""
+        adj = {t["title"]: t.get("dependencies", []) for t in tasks}
+        visited = set()
+        rec_stack = set()
+
+        def dfs(node):
+            visited.add(node)
+            rec_stack.add(node)
+            for dep in adj.get(node, []):
+                if dep not in visited:
+                    if dfs(dep):
+                        return True
+                elif dep in rec_stack:
+                    return True
+            rec_stack.remove(node)
+            return False
+
+        for t in tasks:
+            if t["title"] not in visited:
+                if dfs(t["title"]):
+                    return True
+        return False
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────

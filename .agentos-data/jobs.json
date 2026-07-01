@@ -206,5 +206,57 @@
     "workspace_id": "workspace-flowdesk-ai",
     "conversation_id": null,
     "error": null
+  },
+  "job-112f8947": {
+    "job_id": "job-112f8947",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-06-29 18:57:48",
+    "updated_at": "2026-06-29 19:11:00",
+    "completed_at": "2026-06-29 19:11:00",
+    "workspace_id": "workspace-e-commerce-website",
+    "conversation_id": null,
+    "error": null
+  },
+  "job-eac4c383": {
+    "job_id": "job-eac4c383",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-06-29 19:59:21",
+    "updated_at": "2026-06-29 20:45:00",
+    "completed_at": "2026-06-29 20:45:00",
+    "workspace_id": "workspace-e-commerce-website",
+    "conversation_id": null,
+    "error": null
+  },
+  "job-ec53ce1b": {
+    "job_id": "job-ec53ce1b",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-07-01 10:58:32",
+    "updated_at": "2026-07-01 11:55:32",
+    "completed_at": "2026-07-01 11:55:32",
+    "workspace_id": "workspace-personal-finance",
+    "conversation_id": null,
+    "error": null
+  },
+  "job-1d96a59b": {
+    "job_id": "job-1d96a59b",
+    "agent": "Builder",
+    "status": "Completed",
+    "progress": 100,
+    "message": "Job completed",
+    "started_at": "2026-07-01 14:49:56",
+    "updated_at": "2026-07-01 15:34:02",
+    "completed_at": "2026-07-01 15:34:02",
+    "workspace_id": "workspace-personal-finance",
+    "conversation_id": null,
+    "error": null
   }
 }

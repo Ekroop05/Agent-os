@@ -30,6 +30,16 @@ def _task(
     expected_output: str,
     dependencies: list[str] | None = None,
     priority: str = "High",
+    acceptance_criteria: list[str] | None = None,
+    complexity: str = "S",
+    estimated_context: list[str] | None = None,
+    objective: str | None = None,
+    epic: str | None = None,
+    feature: str | None = None,
+    story: str | None = None,
+    task_uid: str | None = None,
+    context_dependencies: list[str] | None = None,
+    engineering_metadata: dict | None = None,
 ) -> dict:
     """Create a standardised atomic task dict."""
     return {
@@ -39,6 +49,16 @@ def _task(
         "expected_output": expected_output,
         "dependencies": dependencies or [],
         "priority": priority,
+        "acceptance_criteria": acceptance_criteria or [f"Verify {title} works correctly."],
+        "complexity": complexity,
+        "estimated_context": estimated_context or [],
+        "objective": objective or f"Objective: {title}",
+        "epic": epic,
+        "feature": feature,
+        "story": story,
+        "task_uid": task_uid,
+        "context_dependencies": context_dependencies or [],
+        "engineering_metadata": engineering_metadata or {},
     }
 
 
@@ -87,24 +107,40 @@ def _decompose_frontend_shell(spec: dict) -> list[dict]:
         ),
         _task(
             "Create Theme Variables and Global Styles",
-            f"Create CSS variables for the {theme} theme: color palette, typography, spacing, and breakpoints. "
-            f"Create index.css with global resets and base styles.",
+            f"Create a comprehensive design system for the {theme} theme. "
+            f"Include: CSS custom properties for all colors from the palette, "
+            f"typography scale (h1-h6, body, small), spacing scale (4px to 96px), "
+            f"border-radius tokens, shadow tokens (sm, md, lg, xl), "
+            f"transition tokens, and responsive breakpoints (768px, 1024px, 1280px). "
+            f"Import Google Fonts appropriate to the theme. "
+            f"Create index.css with: global reset, smooth scroll, body font settings, "
+            f"selection colors, scrollbar styling, and @keyframes for fadeIn, slideUp, slideIn, scaleIn animations. "
+            f"This file is the design foundation — every component will reference these variables.",
             "frontend",
-            "src/index.css created with CSS custom properties and global styles",
+            "src/index.css created with CSS custom properties, animations, typography scale, and global styles",
             dependencies=[f"Create {frontend} Project"],
         ),
         _task(
             "Create Navbar Component",
-            f"Create a responsive navigation bar component for {name} with logo area, navigation links, "
-            f"and mobile hamburger menu. Use the {theme} theme colors.",
+            f"Create a premium responsive navigation bar for {name}. "
+            f"Desktop: sticky header with logo, navigation links with hover underline animations, and a CTA button. "
+            f"Mobile: hamburger menu icon that animates to X on toggle, slide-in mobile menu with backdrop overlay. "
+            f"Use the {theme} theme colors. Include smooth scroll-to-section for anchor links. "
+            f"Add a subtle background blur/color change on scroll (glassmorphism effect). "
+            f"Navigation links should have smooth color transitions on hover.",
             "frontend",
             "src/components/Navbar.jsx and src/components/Navbar.css created and exported",
             dependencies=["Create Theme Variables and Global Styles"],
         ),
         _task(
             "Create Footer Component",
-            f"Create a footer component for {name} with copyright, navigation links, and social media icons. "
-            f"Use the {theme} theme colors.",
+            f"Create a premium multi-column footer for {name}. "
+            f"Include: brand logo and tagline, 3-4 link columns (Quick Links, Services, Company, Legal), "
+            f"social media icon links with hover color transitions, "
+            f"optional newsletter signup with styled input and button, "
+            f"and a bottom bar with copyright and 'Back to top' button. "
+            f"Use the {theme} theme colors with a darker background variant. "
+            f"Responsive: stack columns vertically on mobile.",
             "frontend",
             "src/components/Footer.jsx and src/components/Footer.css created and exported",
             dependencies=["Create Theme Variables and Global Styles"],
@@ -115,8 +151,14 @@ def _decompose_frontend_shell(spec: dict) -> list[dict]:
     if any("hero" in f.lower() for f in features):
         tasks.append(_task(
             "Create Hero Section Component",
-            f"Create a hero banner component for {name} with headline, subtext, call-to-action button, "
-            f"and visual element. Use the {theme} theme colors and tone.",
+            f"Create a visually stunning hero section for {name}. "
+            f"Include: large gradient headline text, descriptive subheadline, "
+            f"two CTA buttons (primary filled, secondary outlined) with hover animations, "
+            f"and a decorative visual element (CSS gradient orb, geometric pattern, or abstract shape). "
+            f"Add a fadeIn + slideUp entrance animation on load. "
+            f"Use the {theme} theme colors and tone. "
+            f"The hero should be full viewport height (100vh) on desktop, auto on mobile. "
+            f"Content should be centered with proper max-width constraints.",
             "frontend",
             "src/components/Hero.jsx and src/components/Hero.css created and exported",
             dependencies=["Create Theme Variables and Global Styles"],
@@ -124,8 +166,11 @@ def _decompose_frontend_shell(spec: dict) -> list[dict]:
 
     tasks.append(_task(
         "Create Home Page Layout",
-        f"Create the main Home page that assembles Navbar, Hero, content sections, and Footer "
-        f"into a complete page layout for {name}.",
+        f"Create the main Home page that assembles ALL components into a complete, cohesive page for {name}. "
+        f"Import and render: Navbar, Hero, and every feature section component created for this project, then Footer. "
+        f"Add section IDs for smooth scroll navigation. "
+        f"Ensure proper vertical spacing between sections (64-96px gaps). "
+        f"The page should feel like a complete, professional website — not a stack of isolated components.",
         "frontend",
         "src/pages/Home.jsx created, imports and renders all shell components",
         dependencies=["Create Navbar Component", "Create Footer Component"],
@@ -142,8 +187,14 @@ def _decompose_frontend_shell(spec: dict) -> list[dict]:
 
     tasks.append(_task(
         "Implement Responsive Layout",
-        f"Add responsive CSS media queries to all components and pages. Ensure mobile, "
-        f"tablet, and desktop breakpoints work correctly for {name}.",
+        f"Review and enhance responsive CSS across ALL components for {name}. "
+        f"Ensure: navigation collapses to hamburger on mobile (<768px), "
+        f"grid layouts stack vertically on mobile and adapt to 2-col on tablet, "
+        f"typography scales down appropriately, "
+        f"touch targets are at least 44px on mobile, "
+        f"horizontal padding increases on desktop for comfortable reading width, "
+        f"and hero section adapts from full-height on desktop to auto-height on mobile. "
+        f"Test breakpoints: 375px (mobile), 768px (tablet), 1024px (desktop), 1280px (wide).",
         "frontend",
         "All component CSS files updated with @media queries",
         dependencies=["Create App Shell with Routing"],
@@ -154,166 +205,497 @@ def _decompose_frontend_shell(spec: dict) -> list[dict]:
 
 
 def _decompose_frontend_features(spec: dict) -> list[dict]:
-    """Decompose feature implementation into per-feature atomic tasks."""
+    """Decompose feature implementation into per-feature atomic micro-tasks.
+
+    Each feature maps to a **list** of sequential micro-tasks (typically CSS
+    first, then JSX) so the 7B model only writes ONE file per task.
+    """
     features = spec.get("required_features", [])
     theme = spec.get("theme", "General")
     name = spec.get("project_name", "Project")
     tasks = []
 
-    # Map features to concrete component tasks
-    _feature_map = {
-        "hero section": {
-            "title": "Create Hero Section Component",
-            "desc": f"Create a visually striking hero banner for {name} with headline, description, and CTA.",
-            "output": "src/components/Hero.jsx and Hero.css created",
-        },
-        "about section": {
-            "title": "Create About Section Component",
-            "desc": f"Create an About section for {name} describing the project, mission, and team.",
-            "output": "src/components/About.jsx and About.css created",
-        },
-        "contact section": {
-            "title": "Create Contact Section Component",
-            "desc": f"Create a Contact section with a form (name, email, message) and contact details.",
-            "output": "src/components/Contact.jsx and Contact.css created",
-        },
-        "contact form": {
-            "title": "Create Contact Form Component",
-            "desc": f"Create a styled contact form with validation for name, email, and message fields.",
-            "output": "src/components/ContactForm.jsx and ContactForm.css created",
-        },
-        "navigation": {
-            "title": "Create Navigation Component",
-            "desc": f"Create navigation with links, logo, and responsive mobile menu for {name}.",
-            "output": "src/components/Navbar.jsx and Navbar.css created",
-        },
-        "footer": {
-            "title": "Create Footer Component",
-            "desc": f"Create a footer with copyright, links, and social icons for {name}.",
-            "output": "src/components/Footer.jsx and Footer.css created",
-        },
-        "responsive layout": {
-            "title": "Implement Responsive Layout",
-            "desc": "Add CSS media queries for mobile, tablet, and desktop breakpoints across all components.",
-            "output": "All CSS files updated with responsive breakpoints",
-        },
-        "dashboard": {
-            "title": "Create Dashboard Page",
-            "desc": f"Create a dashboard page with metrics overview, cards, and data display for {name}.",
-            "output": "src/pages/Dashboard.jsx and Dashboard.css created",
-        },
-        "user interface": {
-            "title": "Create Core UI Components",
-            "desc": f"Create reusable UI components: Button, Card, Input, Modal for {name}.",
-            "output": "src/components/ui/ directory with Button, Card, Input, Modal components",
-        },
-        "data display": {
-            "title": "Create Data Display Component",
-            "desc": f"Create a data table/grid component with sorting and filtering for {name}.",
-            "output": "src/components/DataTable.jsx and DataTable.css created",
-        },
-        "settings": {
-            "title": "Create Settings Page",
-            "desc": f"Create a settings page with preference controls for {name}.",
-            "output": "src/pages/Settings.jsx and Settings.css created",
-        },
-        "search": {
-            "title": "Create Search Component",
-            "desc": f"Create a search bar with filtering and results display for {name}.",
-            "output": "src/components/SearchBar.jsx and SearchBar.css created",
-        },
-        "features section": {
-            "title": "Create Features Section Component",
-            "desc": f"Create a features showcase section with icon cards for {name}.",
-            "output": "src/components/Features.jsx and Features.css created",
-        },
-        "call to action": {
-            "title": "Create Call To Action Component",
-            "desc": f"Create a CTA section with headline, description, and action button for {name}.",
-            "output": "src/components/CTA.jsx and CTA.css created",
-        },
-        "testimonials": {
-            "title": "Create Testimonials Component",
-            "desc": f"Create a testimonials/reviews carousel or grid for {name}.",
-            "output": "src/components/Testimonials.jsx and Testimonials.css created",
-        },
-        "product catalog": {
-            "title": "Create Product Catalog Component",
-            "desc": f"Create a product grid with cards showing image, name, price, and action for {name}.",
-            "output": "src/components/ProductCatalog.jsx and ProductCatalog.css created",
-        },
-        "product detail": {
-            "title": "Create Product Detail Page",
-            "desc": f"Create a product detail page with images, description, pricing, and add-to-cart for {name}.",
-            "output": "src/pages/ProductDetail.jsx and ProductDetail.css created",
-        },
-        "shopping cart": {
-            "title": "Create Shopping Cart Component",
-            "desc": f"Create a shopping cart with item list, quantities, totals, and checkout button for {name}.",
-            "output": "src/components/Cart.jsx and Cart.css created",
-        },
-        "checkout": {
-            "title": "Create Checkout Page",
-            "desc": f"Create a checkout page with shipping form, payment summary, and order confirmation for {name}.",
-            "output": "src/pages/Checkout.jsx and Checkout.css created",
-        },
-        "image gallery": {
-            "title": "Create Image Gallery Component",
-            "desc": f"Create an image gallery with grid layout and lightbox for {name}.",
-            "output": "src/components/Gallery.jsx and Gallery.css created",
-        },
-        "article list": {
-            "title": "Create Article List Component",
-            "desc": f"Create a blog/article list with cards showing title, excerpt, date for {name}.",
-            "output": "src/components/ArticleList.jsx and ArticleList.css created",
-        },
-        "article detail": {
-            "title": "Create Article Detail Page",
-            "desc": f"Create an article detail page with full content, author info, and related articles for {name}.",
-            "output": "src/pages/ArticleDetail.jsx and ArticleDetail.css created",
-        },
-        "categories": {
-            "title": "Create Categories Component",
-            "desc": f"Create a categories sidebar or navigation for content browsing in {name}.",
-            "output": "src/components/Categories.jsx and Categories.css created",
-        },
-        "metrics overview": {
-            "title": "Create Metrics Overview Component",
-            "desc": f"Create a metrics dashboard with stat cards and trend indicators for {name}.",
-            "output": "src/components/MetricsOverview.jsx and MetricsOverview.css created",
-        },
-        "data tables": {
-            "title": "Create Data Tables Component",
-            "desc": f"Create sortable, filterable data tables for {name}.",
-            "output": "src/components/DataTable.jsx and DataTable.css created",
-        },
-        "charts": {
-            "title": "Create Charts Component",
-            "desc": f"Create chart visualisations (bar, line, pie) for {name} dashboard.",
-            "output": "src/components/Charts.jsx and Charts.css created",
-        },
-        "filters": {
-            "title": "Create Filter Controls Component",
-            "desc": f"Create filter UI with dropdowns, date pickers, and search for {name}.",
-            "output": "src/components/Filters.jsx and Filters.css created",
-        },
-        "projects showcase": {
-            "title": "Create Projects Showcase Component",
-            "desc": f"Create a portfolio/projects grid with cards, images, and detail links for {name}.",
-            "output": "src/components/ProjectsShowcase.jsx and ProjectsShowcase.css created",
-        },
-        "skills section": {
-            "title": "Create Skills Section Component",
-            "desc": f"Create a skills display with progress bars or badges for {name}.",
-            "output": "src/components/Skills.jsx and Skills.css created",
-        },
-        "menu section": {
-            "title": "Create Menu Section Component",
-            "desc": f"Create a menu/catalog section with categories and items for {name}.",
-            "output": "src/components/MenuSection.jsx and MenuSection.css created",
-        },
+    # ── Feature → list-of-micro-tasks map ─────────────────────────────────
+    # Each entry is a list of dicts.  When ``depends_on_prev`` is True the
+    # task is wired to depend on the immediately preceding task in the list;
+    # otherwise it depends on "Create Theme Variables and Global Styles".
+
+    _feature_map: dict[str, list[dict]] = {
+        "hero section": [
+            {
+                "title": "Create Hero Section Styling",
+                "desc": f"Create the CSS file for the Hero section of {name}. "
+                       f"Include: full-viewport hero layout, gradient text effect, dual-button row, "
+                       f"radial glow background, fadeIn + slideUp @keyframes, responsive breakpoints. "
+                       f"Use {theme} theme colors via CSS custom properties.",
+                "output": "src/components/Hero.css created",
+            },
+            {
+                "title": "Create Hero Section Component",
+                "desc": f"Create the JSX component for the Hero section of {name}. "
+                       f"Import Hero.css. Render: large gradient headline, descriptive subheadline, "
+                       f"two CTA buttons (primary + outlined) with hover animations, and a decorative "
+                       f"CSS gradient orb. Use {theme} theme colors.",
+                "output": "src/components/Hero.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "about section": [
+            {
+                "title": "Create About Section Styling",
+                "desc": f"Create the CSS file for the About section of {name}. "
+                       f"Include: two-column layout, stat counter styles, slideUp animation, "
+                       f"responsive stacking for mobile. Use {theme} theme colors.",
+                "output": "src/components/About.css created",
+            },
+            {
+                "title": "Create About Section Component",
+                "desc": f"Create the JSX component for the About section of {name}. "
+                       f"Import About.css. Render: heading, mission statement, 3 key stats with "
+                       f"large numbers and labels, decorative visual element. "
+                       f"Use realistic, domain-appropriate content for the {theme} domain.",
+                "output": "src/components/About.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "contact section": [
+            {
+                "title": "Create Contact Section Styling",
+                "desc": f"Create the CSS file for the Contact section of {name}. "
+                       f"Include: two-column layout, form input focus states, submit button animation, "
+                       f"icon styling for contact info, responsive stacking. Use {theme} theme colors.",
+                "output": "src/components/Contact.css created",
+            },
+            {
+                "title": "Create Contact Section Component",
+                "desc": f"Create the JSX component for the Contact section of {name}. "
+                       f"Import Contact.css. Render: left column with contact info (email, phone, "
+                       f"address with icons), right column with styled form (name, email, subject, "
+                       f"message) with validation and animated submit button. Use {theme} theme colors.",
+                "output": "src/components/Contact.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "contact form": [
+            {
+                "title": "Create Contact Form Styling",
+                "desc": f"Create the CSS file for the ContactForm component of {name}. "
+                       f"Include: input focus states, validation styling, button hover effects.",
+                "output": "src/components/ContactForm.css created",
+            },
+            {
+                "title": "Create Contact Form Component",
+                "desc": f"Create the JSX component for the ContactForm of {name}. "
+                       f"Import ContactForm.css. Render: name, email, message fields with validation.",
+                "output": "src/components/ContactForm.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "navigation": [
+            {
+                "title": "Create Navigation Styling",
+                "desc": f"Create the CSS file for the Navbar of {name}. "
+                       f"Include: sticky header, glassmorphism backdrop-filter, mobile hamburger menu, "
+                       f"slide-in overlay, link hover transitions. Use {theme} theme colors.",
+                "output": "src/components/Navbar.css created",
+            },
+            {
+                "title": "Create Navigation Component",
+                "desc": f"Create the JSX component for the Navbar of {name}. "
+                       f"Import Navbar.css. Render: logo, nav links with smooth-scroll, "
+                       f"CTA button, hamburger toggle for mobile. Use {theme} theme colors.",
+                "output": "src/components/Navbar.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "footer": [
+            {
+                "title": "Create Footer Styling",
+                "desc": f"Create the CSS file for the Footer of {name}. "
+                       f"Include: multi-column grid, link hover transitions, dark background variant, "
+                       f"responsive column stacking. Use {theme} theme colors.",
+                "output": "src/components/Footer.css created",
+            },
+            {
+                "title": "Create Footer Component",
+                "desc": f"Create the JSX component for the Footer of {name}. "
+                       f"Import Footer.css. Render: brand logo + tagline, 3 link columns, "
+                       f"social icons, copyright bar. Use {theme} theme colors.",
+                "output": "src/components/Footer.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "responsive layout": [
+            {
+                "title": "Implement Responsive Layout",
+                "desc": f"Review and enhance responsive CSS across ALL components for {name}. "
+                       f"Ensure navigation collapses on mobile (<768px), grids stack vertically, "
+                       f"typography scales, touch targets ≥44px. "
+                       f"Breakpoints: 375px, 768px, 1024px, 1280px.",
+                "output": "All CSS files updated with responsive breakpoints",
+            },
+        ],
+        "dashboard": [
+            {
+                "title": "Create Dashboard Page Styling",
+                "desc": f"Create the CSS file for the Dashboard page of {name}. "
+                       f"Include: KPI card grid, chart placeholder area, sidebar layout, "
+                       f"card shadows, entrance animations. Use {theme} theme colors.",
+                "output": "src/pages/Dashboard.css created",
+            },
+            {
+                "title": "Create Dashboard Page Component",
+                "desc": f"Create the JSX component for the Dashboard page of {name}. "
+                       f"Import Dashboard.css. Render: 4 KPI stat cards with icons and trend indicators, "
+                       f"chart/data visualization area, recent activity panel. "
+                       f"Include realistic mock data for the {theme} domain.",
+                "output": "src/pages/Dashboard.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "user interface": [
+            {
+                "title": "Create Core UI Component Styles",
+                "desc": f"Create a shared CSS file for reusable UI components (Button, Card, Input, Modal) for {name}. "
+                       f"Include: consistent border-radius, shadows, focus states, transitions. Use {theme} theme colors.",
+                "output": "src/components/ui/ui.css created",
+            },
+            {
+                "title": "Create Core UI Components",
+                "desc": f"Create reusable JSX components: Button, Card, Input, Modal for {name}. "
+                       f"Import ui.css. Each component should accept props for variants (primary, secondary, outlined).",
+                "output": "src/components/ui/index.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "data display": [
+            {
+                "title": "Create Data Display Styling",
+                "desc": f"Create the CSS file for the DataTable component of {name}. "
+                       f"Include: table layout, header styling, row hover, sort indicators, responsive scroll.",
+                "output": "src/components/DataTable.css created",
+            },
+            {
+                "title": "Create Data Display Component",
+                "desc": f"Create the JSX component for a sortable, filterable DataTable for {name}. "
+                       f"Import DataTable.css. Render: column headers with sort toggles, rows, filter bar.",
+                "output": "src/components/DataTable.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "settings": [
+            {
+                "title": "Create Settings Page Styling",
+                "desc": f"Create the CSS file for the Settings page of {name}. "
+                       f"Include: form sections, toggle switches, save button styling.",
+                "output": "src/pages/Settings.css created",
+            },
+            {
+                "title": "Create Settings Page Component",
+                "desc": f"Create the JSX component for the Settings page of {name}. "
+                       f"Import Settings.css. Render: preference controls grouped in sections with save button.",
+                "output": "src/pages/Settings.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "search": [
+            {
+                "title": "Create Search Styling",
+                "desc": f"Create the CSS file for the SearchBar component of {name}. "
+                       f"Include: input with icon, dropdown results, hover states.",
+                "output": "src/components/SearchBar.css created",
+            },
+            {
+                "title": "Create Search Component",
+                "desc": f"Create the JSX component for a search bar with filtering and results for {name}. "
+                       f"Import SearchBar.css.",
+                "output": "src/components/SearchBar.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "features section": [
+            {
+                "title": "Create Features Section Styling",
+                "desc": f"Create the CSS file for the Features section of {name}. "
+                       f"Include: responsive card grid (1/2/3 columns), card hover lift, "
+                       f"icon styling, staggered fadeIn keyframes, rounded corners and shadows. "
+                       f"Use {theme} theme colors.",
+                "output": "src/components/Features.css created",
+            },
+            {
+                "title": "Create Features Section Component",
+                "desc": f"Create the JSX component for the Features section of {name}. "
+                       f"Import Features.css. Render: 4-6 feature cards with icons (Unicode emoji), "
+                       f"bold titles, descriptive text. Use realistic feature names for the {theme} domain.",
+                "output": "src/components/Features.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "call to action": [
+            {
+                "title": "Create CTA Section Styling",
+                "desc": f"Create the CSS file for the CTA section of {name}. "
+                       f"Include: gradient background, centered layout, button scale + shadow hover, "
+                       f"subtle background animation. Use {theme} theme colors.",
+                "output": "src/components/CTA.css created",
+            },
+            {
+                "title": "Create CTA Section Component",
+                "desc": f"Create the JSX component for the Call To Action section of {name}. "
+                       f"Import CTA.css. Render: large headline, subtext, prominent animated button.",
+                "output": "src/components/CTA.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "testimonials": [
+            {
+                "title": "Create Testimonials Styling",
+                "desc": f"Create the CSS file for the Testimonials section of {name}. "
+                       f"Include: responsive card grid, quote styling with large quotation marks, "
+                       f"avatar circles with gradient, staggered scaleIn animation. Use {theme} theme colors.",
+                "output": "src/components/Testimonials.css created",
+            },
+            {
+                "title": "Create Testimonials Component",
+                "desc": f"Create the JSX component for the Testimonials section of {name}. "
+                       f"Import Testimonials.css. Render: 3+ review cards with quote, reviewer name, "
+                       f"role/company, avatar initial. Use realistic testimonial content for the {theme} domain.",
+                "output": "src/components/Testimonials.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "product catalog": [
+            {
+                "title": "Create Product Catalog Styling",
+                "desc": f"Create the CSS file for the ProductCatalog component of {name}. "
+                       f"Include: product card grid, image placeholder, price styling, hover effects.",
+                "output": "src/components/ProductCatalog.css created",
+            },
+            {
+                "title": "Create Product Catalog Component",
+                "desc": f"Create the JSX component for the ProductCatalog of {name}. "
+                       f"Import ProductCatalog.css. Render: product grid with cards showing image area, "
+                       f"name, price, and action button.",
+                "output": "src/components/ProductCatalog.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "product detail": [
+            {
+                "title": "Create Product Detail Styling",
+                "desc": f"Create the CSS file for the ProductDetail page of {name}. "
+                       f"Include: two-column layout (image + info), price styling, add-to-cart button.",
+                "output": "src/pages/ProductDetail.css created",
+            },
+            {
+                "title": "Create Product Detail Page",
+                "desc": f"Create the JSX component for the ProductDetail page of {name}. "
+                       f"Import ProductDetail.css. Render: product image, description, pricing, add-to-cart.",
+                "output": "src/pages/ProductDetail.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "shopping cart": [
+            {
+                "title": "Create Shopping Cart Styling",
+                "desc": f"Create the CSS file for the Cart component of {name}. "
+                       f"Include: item list, quantity controls, totals section, checkout button styling.",
+                "output": "src/components/Cart.css created",
+            },
+            {
+                "title": "Create Shopping Cart Component",
+                "desc": f"Create the JSX component for the shopping Cart of {name}. "
+                       f"Import Cart.css. Render: item list with quantities, totals, checkout button.",
+                "output": "src/components/Cart.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "checkout": [
+            {
+                "title": "Create Checkout Page Styling",
+                "desc": f"Create the CSS file for the Checkout page of {name}. "
+                       f"Include: form sections, payment summary, order confirmation styling.",
+                "output": "src/pages/Checkout.css created",
+            },
+            {
+                "title": "Create Checkout Page Component",
+                "desc": f"Create the JSX component for the Checkout page of {name}. "
+                       f"Import Checkout.css. Render: shipping form, payment summary, order confirmation.",
+                "output": "src/pages/Checkout.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "image gallery": [
+            {
+                "title": "Create Gallery Styling",
+                "desc": f"Create the CSS file for the Gallery component of {name}. "
+                       f"Include: masonry/grid layout, lightbox overlay, image hover zoom.",
+                "output": "src/components/Gallery.css created",
+            },
+            {
+                "title": "Create Gallery Component",
+                "desc": f"Create the JSX component for an image Gallery with grid layout and lightbox for {name}. "
+                       f"Import Gallery.css.",
+                "output": "src/components/Gallery.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "article list": [
+            {
+                "title": "Create Article List Styling",
+                "desc": f"Create the CSS file for the ArticleList component of {name}. "
+                       f"Include: card layout, excerpt truncation, date styling, hover effects.",
+                "output": "src/components/ArticleList.css created",
+            },
+            {
+                "title": "Create Article List Component",
+                "desc": f"Create the JSX component for a blog/article list for {name}. "
+                       f"Import ArticleList.css. Render: cards with title, excerpt, date, read-more link.",
+                "output": "src/components/ArticleList.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "article detail": [
+            {
+                "title": "Create Article Detail Styling",
+                "desc": f"Create the CSS file for the ArticleDetail page of {name}. "
+                       f"Include: article content typography, author info, related articles grid.",
+                "output": "src/pages/ArticleDetail.css created",
+            },
+            {
+                "title": "Create Article Detail Page",
+                "desc": f"Create the JSX component for the ArticleDetail page of {name}. "
+                       f"Import ArticleDetail.css. Render: full article content, author info, related articles.",
+                "output": "src/pages/ArticleDetail.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "categories": [
+            {
+                "title": "Create Categories Styling",
+                "desc": f"Create the CSS file for the Categories component of {name}. "
+                       f"Include: sidebar layout, category item hover, active state, badge count.",
+                "output": "src/components/Categories.css created",
+            },
+            {
+                "title": "Create Categories Component",
+                "desc": f"Create the JSX component for a categories sidebar/nav for {name}. "
+                       f"Import Categories.css. Render: category list with active state highlighting.",
+                "output": "src/components/Categories.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "metrics overview": [
+            {
+                "title": "Create Metrics Overview Styling",
+                "desc": f"Create the CSS file for the MetricsOverview component of {name}. "
+                       f"Include: stat card grid, trend indicator styling, number formatting.",
+                "output": "src/components/MetricsOverview.css created",
+            },
+            {
+                "title": "Create Metrics Overview Component",
+                "desc": f"Create the JSX component for a metrics dashboard with stat cards for {name}. "
+                       f"Import MetricsOverview.css. Render: stat cards with icons, numbers, trends.",
+                "output": "src/components/MetricsOverview.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "data tables": [
+            {
+                "title": "Create Data Tables Styling",
+                "desc": f"Create the CSS file for the DataTable component of {name}. "
+                       f"Include: table layout, sortable headers, row hover, filter bar, responsive scroll.",
+                "output": "src/components/DataTable.css created",
+            },
+            {
+                "title": "Create Data Tables Component",
+                "desc": f"Create the JSX component for sortable, filterable data tables for {name}. "
+                       f"Import DataTable.css.",
+                "output": "src/components/DataTable.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "charts": [
+            {
+                "title": "Create Charts Styling",
+                "desc": f"Create the CSS file for chart visualisations (bar, line, pie) for {name}. "
+                       f"Include: chart container, legend, tooltip, responsive sizing.",
+                "output": "src/components/Charts.css created",
+            },
+            {
+                "title": "Create Charts Component",
+                "desc": f"Create the JSX component for chart visualisations for {name} dashboard. "
+                       f"Import Charts.css. Render: bar/line/pie chart placeholders with CSS-based visuals.",
+                "output": "src/components/Charts.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "filters": [
+            {
+                "title": "Create Filter Controls Styling",
+                "desc": f"Create the CSS file for filter controls (dropdowns, date pickers, search) for {name}. "
+                       f"Include: dropdown styling, input focus states, button group layout.",
+                "output": "src/components/Filters.css created",
+            },
+            {
+                "title": "Create Filter Controls Component",
+                "desc": f"Create the JSX component for filter UI with dropdowns, date pickers, and search for {name}. "
+                       f"Import Filters.css.",
+                "output": "src/components/Filters.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "projects showcase": [
+            {
+                "title": "Create Projects Showcase Styling",
+                "desc": f"Create the CSS file for the ProjectsShowcase component of {name}. "
+                       f"Include: card grid, image placeholder, overlay hover, detail link styling.",
+                "output": "src/components/ProjectsShowcase.css created",
+            },
+            {
+                "title": "Create Projects Showcase Component",
+                "desc": f"Create the JSX component for a portfolio/projects grid for {name}. "
+                       f"Import ProjectsShowcase.css. Render: project cards with image area, title, description, link.",
+                "output": "src/components/ProjectsShowcase.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "skills section": [
+            {
+                "title": "Create Skills Section Styling",
+                "desc": f"Create the CSS file for the Skills section of {name}. "
+                       f"Include: progress bar styling, badge layout, animation for progress fill.",
+                "output": "src/components/Skills.css created",
+            },
+            {
+                "title": "Create Skills Section Component",
+                "desc": f"Create the JSX component for a skills display with progress bars or badges for {name}. "
+                       f"Import Skills.css.",
+                "output": "src/components/Skills.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
+        "menu section": [
+            {
+                "title": "Create Menu Section Styling",
+                "desc": f"Create the CSS file for the MenuSection of {name}. "
+                       f"Include: category tab styling, item card grid (1/2/3 col responsive), "
+                       f"hover lift animations, price styling. Use {theme} theme colors.",
+                "output": "src/components/MenuSection.css created",
+            },
+            {
+                "title": "Create Menu Section Component",
+                "desc": f"Create the JSX component for the MenuSection of {name}. "
+                       f"Import MenuSection.css. Render: category tabs at top, grid of item cards "
+                       f"(name, description, price, decorative element). "
+                       f"Use realistic menu items for the {theme} domain.",
+                "output": "src/components/MenuSection.jsx created",
+                "depends_on_prev": True,
+            },
+        ],
     }
 
+    # ── Build tasks from the list-based feature map ───────────────────────
     seen = set()
     for feature in features:
         key = feature.lower().strip()
@@ -323,15 +705,20 @@ def _decompose_frontend_features(spec: dict) -> list[dict]:
 
         mapping = _feature_map.get(key)
         if mapping:
-            tasks.append(_task(
-                mapping["title"],
-                mapping["desc"],
-                "frontend",
-                mapping["output"],
-                dependencies=["Create Theme Variables and Global Styles"],
-            ))
+            # mapping is a list of sequential micro-tasks
+            prev_title = "Create Theme Variables and Global Styles"
+            for micro in mapping:
+                deps = [prev_title] if micro.get("depends_on_prev") else ["Create Theme Variables and Global Styles"]
+                tasks.append(_task(
+                    micro["title"],
+                    micro["desc"],
+                    "frontend",
+                    micro["output"],
+                    dependencies=deps,
+                ))
+                prev_title = micro["title"]
         else:
-            # Generic feature task
+            # Generic feature task (single file)
             tasks.append(_task(
                 f"Implement {feature}",
                 f"Create the {feature} feature for {name} with full UI, styling, "
@@ -768,6 +1155,7 @@ Return ONLY valid JSON (no markdown fences) with this structure:
 }}
 
 RULES:
+- CRITICAL RULE: ONE FILE PER TASK. A task must NEVER require writing both a .jsx and a .css file.
 - Every task must be a single, clear implementation objective
 - No planning tasks (no "Define", "Analyze", "Research", "Design")
 - Each task should produce 1-3 files maximum
@@ -793,6 +1181,30 @@ RULES:
 
         if not llm_tasks:
             raise ValueError("LLM returned empty tasks list")
+
+        # Circuit breaker to enforce ONE FILE PER TASK
+        refined = []
+        for t in llm_tasks:
+            output = t.get("expected_output", "")
+            if ".jsx" in output.lower() and ".css" in output.lower():
+                css_title = t.get("title", "Task").replace("Component", "Styling").replace("Create ", "Create Styling for ")
+                jsx_title = t.get("title", "Task")
+                
+                # CSS Task
+                css_t = deepcopy(t)
+                css_t["title"] = css_title
+                css_t["expected_output"] = output.replace(".jsx", "").replace("and", "").strip()
+                refined.append(css_t)
+                
+                # JSX Task
+                jsx_t = deepcopy(t)
+                jsx_t["title"] = jsx_title
+                jsx_t["expected_output"] = output.replace(".css", "").replace("and", "").strip()
+                jsx_t["dependencies"] = [css_title] + t.get("dependencies", [])
+                refined.append(jsx_t)
+            else:
+                refined.append(t)
+        llm_tasks = refined
 
         # Normalise to our format
         result = []
@@ -911,15 +1323,32 @@ class TaskDecomposer:
                 })
                 continue
 
-            # Try template-based decomposition first
-            template_fn = _match_template(title)
-            if template_fn:
-                atomic_tasks = template_fn(spec)
-                logger.info("Template decomposed '%s' into %d atomic tasks", title, len(atomic_tasks))
-            else:
-                # LLM-augmented decomposition
-                atomic_tasks = _llm_decompose(title, description, spec)
-                logger.info("LLM decomposed '%s' into %d atomic tasks", title, len(atomic_tasks))
+            # Force LLM-augmented decomposition (template routing disabled)
+            atomic_tasks = _llm_decompose(title, description, spec)
+            logger.info("LLM decomposed '%s' into %d atomic tasks", title, len(atomic_tasks))
+
+            parent_epic = coarse_task.get("epic")
+            parent_feature = coarse_task.get("feature")
+            parent_story = coarse_task.get("story")
+            parent_ac = coarse_task.get("acceptance_criteria")
+            parent_context = coarse_task.get("estimated_context")
+            parent_meta = coarse_task.get("engineering_metadata") or {}
+
+            for t in atomic_tasks:
+                if not t.get("epic"):
+                    t["epic"] = parent_epic or "Frontend Infrastructure & UI"
+                if not t.get("feature"):
+                    t["feature"] = parent_feature or "Core User Interface"
+                if not t.get("story"):
+                    t["story"] = parent_story or t["title"]
+                if not t.get("acceptance_criteria") or t["acceptance_criteria"] == [f"Verify {t['title']} works correctly."]:
+                    t["acceptance_criteria"] = parent_ac or [f"Verify {t['title']} works correctly."]
+                if not t.get("complexity"):
+                    t["complexity"] = "S"
+                if not t.get("estimated_context"):
+                    t["estimated_context"] = parent_context or ["spec.json"]
+                if not t.get("engineering_metadata"):
+                    t["engineering_metadata"] = parent_meta or {"layer": "FE", "estimated_files_count": 1}
 
             expansion_log.append({
                 "source_task": title,
@@ -936,6 +1365,22 @@ class TaskDecomposer:
         new_features = [t for t in feature_tasks if t["title"].lower() not in existing_titles]
 
         if new_features:
+            for t in new_features:
+                if not t.get("epic"):
+                    t["epic"] = "Frontend Infrastructure & UI"
+                if not t.get("feature"):
+                    t["feature"] = t["title"].replace("Create ", "").replace(" Component", "")
+                if not t.get("story"):
+                    t["story"] = f"Implement {t['title']}"
+                if not t.get("acceptance_criteria") or t["acceptance_criteria"] == [f"Verify {t['title']} works correctly."]:
+                    t["acceptance_criteria"] = [f"Successfully implement {t['title']}", "Verify responsive styling"]
+                if not t.get("complexity"):
+                    t["complexity"] = "S"
+                if not t.get("estimated_context"):
+                    t["estimated_context"] = ["spec.json", "src/App.jsx"]
+                if not t.get("engineering_metadata"):
+                    t["engineering_metadata"] = {"layer": "FE", "estimated_files_count": 2}
+
             all_atomic.extend(new_features)
             expansion_log.append({
                 "source_task": "Required Features (spec)",
@@ -955,10 +1400,26 @@ class TaskDecomposer:
         # ── Topological sort ──────────────────────────────────────────
         sorted_tasks = _topological_sort(deduplicated)
 
-        # ── Clean up dangling dependencies ────────────────────────────
+        # ── Clean up dangling dependencies & assign UIDs ──────────────
         valid_titles = {t["title"] for t in sorted_tasks}
+        title_to_uid = {}
+        layer_counters: dict[str, int] = {}
+
         for task in sorted_tasks:
             task["dependencies"] = [d for d in task.get("dependencies", []) if d in valid_titles]
+            meta = task.get("engineering_metadata") or {}
+            layer = meta.get("layer", "FE")
+            count = layer_counters.get(layer, 0) + 1
+            layer_counters[layer] = count
+            uid = f"TASK-{layer}-{count:03d}"
+            task["task_uid"] = uid
+            title_to_uid[task["title"]] = uid
+
+        # Update context_dependencies to use UIDs instead of titles
+        for task in sorted_tasks:
+            task["context_dependencies"] = [
+                title_to_uid[dep_title] for dep_title in task["dependencies"] if dep_title in title_to_uid
+            ]
 
         # Store expansion log for task_graph
         self._last_expansion_log = expansion_log

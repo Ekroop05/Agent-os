@@ -22,6 +22,7 @@ from app.schemas import Event, TaskUpdate
 from app.services.llm_service import generate_response
 from app.services.time_service import now_label
 from app.services.path_security import validate_write_path, SecurityViolationError
+from app.services.builder_intelligence import builder_intelligence
 
 BUILDER_MODEL = "qwen2.5-coder:7b"
 
@@ -55,6 +56,8 @@ FRONTEND_TEMPLATE = {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{name}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="root"></div>
@@ -84,77 +87,285 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 )
 """,
 
-    "frontend/src/App.jsx": lambda name, **kw: f"""import React from 'react'
+    "frontend/src/App.jsx": lambda name, **kw: f"""import React, {{ useState }} from 'react'
+
+const features = [
+  {{ icon: '\\u2728', title: 'Modern Design', desc: 'Crafted with attention to every pixel, delivering a premium visual experience.' }},
+  {{ icon: '\\u26A1', title: 'Lightning Fast', desc: 'Optimized performance with instant load times and smooth interactions.' }},
+  {{ icon: '\\U0001F6E1\\uFE0F', title: 'Secure & Reliable', desc: 'Built with industry-standard security practices to protect your data.' }},
+  {{ icon: '\\U0001F4F1', title: 'Fully Responsive', desc: 'Perfect experience across desktop, tablet, and mobile devices.' }},
+  {{ icon: '\\U0001F3A8', title: 'Customizable', desc: 'Easily adaptable to match your brand identity and preferences.' }},
+  {{ icon: '\\U0001F680', title: 'Scalable', desc: 'Architecture designed to grow seamlessly with your business needs.' }},
+]
+
+const testimonials = [
+  {{ name: 'Sarah Chen', role: 'Product Manager', quote: 'This platform transformed how our team collaborates. The intuitive design made onboarding effortless.' }},
+  {{ name: 'Marcus Williams', role: 'CTO, TechFlow', quote: 'Exceptional quality and attention to detail. It feels like it was custom-built for our needs.' }},
+  {{ name: 'Elena Rodriguez', role: 'Design Lead', quote: 'The best tool we have adopted this year. Clean, fast, and beautifully designed.' }},
+]
 
 export default function App() {{
+  const [menuOpen, setMenuOpen] = useState(false)
+
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>{name}</h1>
-        <p>Discover everything about {name}. Your journey starts here.</p>
-      </header>
-      <main className="app-main">
-        <section className="hero">
-          <h2>Welcome</h2>
-          <p>Explore our curated experience designed just for you.</p>
-        </section>
-      </main>
+      {{/* Navigation */}}
+      <nav className="navbar">
+        <div className="nav-container">
+          <a href="#" className="nav-logo">{name}</a>
+          <button className="nav-toggle" onClick={{() => setMenuOpen(!menuOpen)}} aria-label="Toggle menu">
+            {{menuOpen ? '\\u2715' : '\\u2630'}}
+          </button>
+          <ul className={{`nav-links ${{menuOpen ? 'active' : ''}}`}}>
+            <li><a href="#features" onClick={{() => setMenuOpen(false)}}>Features</a></li>
+            <li><a href="#testimonials" onClick={{() => setMenuOpen(false)}}>Testimonials</a></li>
+            <li><a href="#contact" onClick={{() => setMenuOpen(false)}}>Contact</a></li>
+            <li><a href="#contact" className="nav-cta" onClick={{() => setMenuOpen(false)}}>Get Started</a></li>
+          </ul>
+        </div>
+      </nav>
+
+      {{/* Hero */}}
+      <section className="hero">
+        <div className="hero-content">
+          <h1 className="hero-title">Welcome to <span className="gradient-text">{name}</span></h1>
+          <p className="hero-subtitle">Discover a premium experience crafted with modern design, powerful features, and seamless performance.</p>
+          <div className="hero-actions">
+            <a href="#features" className="btn btn-primary">Explore Features</a>
+            <a href="#contact" className="btn btn-outline">Get in Touch</a>
+          </div>
+        </div>
+        <div className="hero-glow"></div>
+      </section>
+
+      {{/* Features */}}
+      <section id="features" className="section features-section">
+        <div className="container">
+          <h2 className="section-title">Why Choose Us</h2>
+          <p className="section-subtitle">Everything you need, nothing you don't.</p>
+          <div className="features-grid">
+            {{features.map((f, i) => (
+              <div key={{i}} className="feature-card" style={{{{ animationDelay: `${{i * 0.1}}s` }}}}>
+                <span className="feature-icon">{{f.icon}}</span>
+                <h3>{{f.title}}</h3>
+                <p>{{f.desc}}</p>
+              </div>
+            ))}}
+          </div>
+        </div>
+      </section>
+
+      {{/* Testimonials */}}
+      <section id="testimonials" className="section testimonials-section">
+        <div className="container">
+          <h2 className="section-title">What People Say</h2>
+          <p className="section-subtitle">Trusted by teams around the world.</p>
+          <div className="testimonials-grid">
+            {{testimonials.map((t, i) => (
+              <div key={{i}} className="testimonial-card" style={{{{ animationDelay: `${{i * 0.15}}s` }}}}>
+                <p className="testimonial-quote">"{{t.quote}}"</p>
+                <div className="testimonial-author">
+                  <div className="testimonial-avatar">{{t.name[0]}}</div>
+                  <div><strong>{{t.name}}</strong><span>{{t.role}}</span></div>
+                </div>
+              </div>
+            ))}}
+          </div>
+        </div>
+      </section>
+
+      {{/* CTA */}}
+      <section className="section cta-section">
+        <div className="container">
+          <h2>Ready to Get Started?</h2>
+          <p>Join thousands of satisfied users and take your experience to the next level.</p>
+          <a href="#contact" className="btn btn-primary btn-lg">Start Now</a>
+        </div>
+      </section>
+
+      {{/* Contact */}}
+      <section id="contact" className="section contact-section">
+        <div className="container">
+          <h2 className="section-title">Get in Touch</h2>
+          <p className="section-subtitle">We would love to hear from you.</p>
+          <form className="contact-form" onSubmit={{(e) => e.preventDefault()}}>
+            <input type="text" placeholder="Your Name" required />
+            <input type="email" placeholder="Your Email" required />
+            <textarea placeholder="Your Message" rows="5" required></textarea>
+            <button type="submit" className="btn btn-primary">Send Message</button>
+          </form>
+        </div>
+      </section>
+
+      {{/* Footer */}}
+      <footer className="footer">
+        <div className="footer-container">
+          <div className="footer-brand"><h3>{name}</h3><p>Crafted with care. Built for excellence.</p></div>
+          <div className="footer-links"><h4>Quick Links</h4><a href="#features">Features</a><a href="#testimonials">Testimonials</a><a href="#contact">Contact</a></div>
+          <div className="footer-links"><h4>Legal</h4><a href="#">Privacy Policy</a><a href="#">Terms of Service</a></div>
+        </div>
+        <div className="footer-bottom"><p>&copy; {{new Date().getFullYear()}} {name}. All rights reserved.</p></div>
+      </footer>
     </div>
   )
 }}
 """,
 
-    "frontend/src/index.css": lambda name, **kw: """* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+    "frontend/src/index.css": lambda name, **kw: """@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2563eb;
+  --color-accent: #06b6d4;
+  --color-bg: #0f172a;
+  --color-bg-alt: #1e293b;
+  --color-surface: rgba(30, 41, 59, 0.6);
+  --color-text: #e2e8f0;
+  --color-text-muted: #94a3b8;
+  --color-border: rgba(148, 163, 184, 0.1);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.15);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.2);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.3);
+  --transition: all 0.3s ease;
 }
 
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
 body {
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-  background: #0f172a;
-  color: #e2e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
   min-height: 100vh;
+  line-height: 1.7;
 }
 
-.app-header {
-  text-align: center;
-  padding: 3rem 1rem;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
 
-.app-header h1 {
-  font-size: 2.5rem;
-  background: linear-gradient(135deg, #38bdf8, #818cf8);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+.section { padding: 96px 0; }
+.section-title {
+  font-size: 2.25rem; font-weight: 800; text-align: center; margin-bottom: 12px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
+.section-subtitle { text-align: center; color: var(--color-text-muted); margin-bottom: 48px; font-size: 1.125rem; }
 
-.app-main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
+.btn {
+  display: inline-block; padding: 14px 32px; border-radius: var(--radius-sm); font-weight: 600;
+  font-size: 1rem; text-decoration: none; transition: var(--transition); cursor: pointer; border: none;
 }
+.btn-primary { background: var(--color-primary); color: #fff; }
+.btn-primary:hover { background: var(--color-primary-dark); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.btn-outline { border: 2px solid var(--color-primary); color: var(--color-primary); background: transparent; }
+.btn-outline:hover { background: var(--color-primary); color: #fff; transform: translateY(-2px); }
+.btn-lg { padding: 16px 40px; font-size: 1.125rem; }
+
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border);
+}
+.nav-container { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; }
+.nav-logo { font-size: 1.5rem; font-weight: 800; color: var(--color-text); text-decoration: none; }
+.nav-toggle { display: none; background: none; border: none; color: var(--color-text); font-size: 1.5rem; cursor: pointer; }
+.nav-links { display: flex; list-style: none; gap: 32px; align-items: center; }
+.nav-links a { color: var(--color-text-muted); text-decoration: none; font-weight: 500; transition: var(--transition); }
+.nav-links a:hover { color: var(--color-primary); }
+.nav-cta { background: var(--color-primary) !important; color: #fff !important; padding: 10px 24px !important; border-radius: var(--radius-sm) !important; }
 
 .hero {
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 12px;
-  padding: 2rem;
-  margin-top: 2rem;
+  position: relative; min-height: 90vh; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 120px 24px 96px; overflow: hidden;
+}
+.hero-content { position: relative; z-index: 1; animation: slideUp 0.8s ease; }
+.hero-title { font-size: 3.5rem; font-weight: 800; line-height: 1.15; margin-bottom: 20px; }
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero-subtitle { font-size: 1.25rem; color: var(--color-text-muted); max-width: 600px; margin: 0 auto 32px; line-height: 1.7; }
+.hero-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+.hero-glow {
+  position: absolute; width: 500px; height: 500px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(59,130,246,0.15), transparent 70%);
+  top: 50%; left: 50%; transform: translate(-50%,-50%); pointer-events: none;
 }
 
-.hero h2 {
-  margin-bottom: 1rem;
-  color: #94a3b8;
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.feature-card {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); padding: 32px; transition: var(--transition);
+  animation: slideUp 0.6s ease both;
+}
+.feature-card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); border-color: rgba(59,130,246,0.3); }
+.feature-icon { font-size: 2.5rem; display: block; margin-bottom: 16px; }
+.feature-card h3 { font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; }
+.feature-card p { color: var(--color-text-muted); font-size: 0.95rem; line-height: 1.6; }
+
+.testimonials-section { background: var(--color-bg-alt); }
+.testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.testimonial-card {
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg); padding: 32px; animation: scaleIn 0.5s ease both;
+}
+.testimonial-quote { font-size: 1rem; line-height: 1.7; margin-bottom: 20px; font-style: italic; }
+.testimonial-author { display: flex; align-items: center; gap: 12px; }
+.testimonial-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fff;
+}
+.testimonial-author strong { display: block; font-size: 0.95rem; }
+.testimonial-author span { color: var(--color-text-muted); font-size: 0.85rem; }
+
+.cta-section {
+  text-align: center;
+  background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(6,182,212,0.1));
+  border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);
+}
+.cta-section h2 { font-size: 2rem; font-weight: 800; margin-bottom: 12px; }
+.cta-section p { color: var(--color-text-muted); margin-bottom: 32px; font-size: 1.125rem; }
+
+.contact-form { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.contact-form input, .contact-form textarea {
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+  padding: 14px 18px; color: var(--color-text); font-family: inherit; font-size: 1rem; transition: var(--transition);
+}
+.contact-form input:focus, .contact-form textarea:focus {
+  outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
 }
 
-code {
-  background: rgba(56, 189, 248, 0.1);
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: #7dd3fc;
+.footer { background: var(--color-bg-alt); border-top: 1px solid var(--color-border); padding: 64px 0 0; }
+.footer-container { max-width: 1120px; margin: 0 auto; padding: 0 24px; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 48px; }
+.footer-brand h3 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
+.footer-brand p { color: var(--color-text-muted); }
+.footer-links h4 { font-weight: 700; margin-bottom: 16px; }
+.footer-links a { display: block; color: var(--color-text-muted); text-decoration: none; margin-bottom: 10px; transition: var(--transition); }
+.footer-links a:hover { color: var(--color-primary); }
+.footer-bottom { text-align: center; padding: 24px; margin-top: 48px; border-top: 1px solid var(--color-border); color: var(--color-text-muted); font-size: 0.875rem; }
+
+@media (max-width: 768px) {
+  .nav-toggle { display: block; }
+  .nav-links {
+    position: fixed; top: 0; right: -100%; width: 75%; height: 100vh;
+    background: var(--color-bg-alt); flex-direction: column; padding: 80px 32px 32px;
+    transition: right 0.3s ease; z-index: 200;
+  }
+  .nav-links.active { right: 0; }
+  .hero-title { font-size: 2.25rem; }
+  .hero { min-height: auto; padding: 100px 24px 64px; }
+  .features-grid, .testimonials-grid { grid-template-columns: 1fr; }
+  .footer-container { grid-template-columns: 1fr; gap: 32px; }
+  .hero-actions { flex-direction: column; align-items: center; }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+  .features-grid, .testimonials-grid { grid-template-columns: repeat(2, 1fr); }
+  .hero-title { font-size: 2.75rem; }
 }
 """,
 
@@ -281,12 +492,6 @@ class BuilderService:
             # Log each created file
             for fpath in output_files:
                 execution_logger.log(workspace.path, "Builder Agent", "FILE_CREATED", task_id, fpath)
-
-            # ── Sprint 3: Build Validation Layer ────────────────────────
-            if not ("create project folder" in title_lower or "base structure" in title_lower or "readme" in title_lower or "manifest" in title_lower):
-                validation_errors = self._validate_build_output(workspace.path, output_files)
-                if validation_errors:
-                    raise ValueError(f"Build validation failed: {'; '.join(validation_errors)}")
 
             # Mark task as completed
             task = task_service.update(TaskUpdate(
@@ -492,114 +697,105 @@ Check the `.agentos/project.json` manifest for full project metadata.
     # ── Generic LLM-Driven Task Execution ─────────────────────────────────
 
     async def _generate_for_task(self, task, workspace, architecture: dict | None = None) -> list[str]:
-        """Use LLM to generate files for a coding task, with template fallback."""
+        """Use LLM to generate files for a coding task, with Intelligence Engine and retry fallback."""
         from app.services.spec_engine import spec_engine
 
         if not architecture:
             architecture = self._get_architecture_from_workspace(workspace)
-        arch_summary = json.dumps(architecture, default=str) if architecture else "No architecture available"
 
-        # Sprint 4: Load spec for rich project context
         spec = spec_engine.read_spec(workspace.path)
-        spec_context = ""
-        if spec:
-            theme_ctx = spec.get("theme_context", {})
-            spec_context = f"""
-── PROJECT SPECIFICATION (source of truth) ──────────────────────
-Project Name: {spec.get('project_name', workspace.name)}
-Theme: {spec.get('theme', 'General')}
-Purpose: {spec.get('purpose', 'General')}
-Target Users: {spec.get('target_users', 'General Visitors')}
-Frontend: {spec.get('frontend', 'React + Vite')}
-Backend: {spec.get('backend', False)}
-Required Features: {', '.join(spec.get('required_features', []))}
-Color Palette: {theme_ctx.get('color_palette', 'N/A')}
-Tone: {theme_ctx.get('tone', 'N/A')}
-Content Domain: {theme_ctx.get('content_domain', 'N/A')}
-Suggested Sections: {', '.join(theme_ctx.get('suggested_sections', []))}
-Style Keywords: {', '.join(theme_ctx.get('style_keywords', []))}
-─────────────────────────────────────────────────────────────────"""
+        
+        # ── Builder Intelligence Engine ──
+        retrieved_context = builder_intelligence.retrieve_context(task, workspace.path)
+        prompt = builder_intelligence.assemble_prompt(task, workspace, architecture, spec, retrieved_context)
 
-        prompt = f"""You are a senior frontend developer building a real product. Generate the code files needed for this task.
-
-PROJECT: {workspace.name}
-PROJECT PATH: {workspace.path}
-{spec_context}
-ARCHITECTURE: {arch_summary}
-
-TASK: {task.title}
-DESCRIPTION: {task.description}
-
-EXISTING STRUCTURE:
-{self._describe_existing_structure(workspace.path)}
-
-Return ONLY valid JSON with this structure:
-{{
-  "files": [
-    {{
-      "path": "relative/path/to/file.ext",
-      "content": "file content here"
-    }}
-  ]
-}}
-
-STRICT QUALITY STANDARDS:
-1. Feature Completion > File Creation: Generate FULLY functioning features, not just placeholder files. Break large tasks into multiple interconnected files (e.g., Components, CSS, Services) and return them all.
-2. React/Web Standards: For frontend tasks, implement responsive layouts, modern styling, loading/error states, and proper UI elements (Hero, Nav, Footer, Sections). Include 5+ components and 2+ pages if applicable.
-3. Theme-Aware Generation: Use the color palette, tone, and content domain from the spec. Every component must reflect the project's theme visually and in content.
-4. Meaningful Content: Do NOT use "Lorem Ipsum", "Hero 1", or generic placeholder text. Write realistic copy that matches the project theme and content domain.
-5. Asset Handling: NEVER reference external or non-existent images. Use inline SVG components or CSS-based visuals instead.
-6. No Branding: Do NOT include any references to "Agent OS", "scaffolded by", or "generated by" in user-facing code.
-
-Rules:
-- Use paths relative to the project root
-- Frontend files go under frontend/ (e.g. frontend/src/App.jsx)
-- Backend files go under backend/ (e.g. backend/main.py)
-- Generate complete, working code
-- Do NOT wrap JSON in markdown code fences"""
-
-        try:
-            raw = generate_response(BUILDER_MODEL, prompt)
-            # Strip think tags
-            raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
-            parsed = json.loads(self._extract_json(raw))
-            files = parsed.get("files", [])
-            if not files:
-                raise ValueError("LLM returned empty files list")
-        except Exception:
-            # Fallback: use project templates instead of creating documentation
-            files = self._template_fallback(task, workspace)
-
+        max_retries = 1
         created = []
-        for file_info in files:
-            rel_path = file_info.get("path", "")
-            content = file_info.get("content", "")
-            if not rel_path:
-                continue
+        files = []
 
-            abs_path = os.path.join(workspace.path.replace("/", os.sep), rel_path.replace("/", os.sep))
-
-            # Sprint 4.5: Validate every file write
+        for attempt in range(max_retries + 1):
             try:
-                validate_write_path(abs_path, workspace.path)
-            except SecurityViolationError as e:
-                logger.warning("Path security blocked file write: %s - %s", rel_path, e)
-                continue  # Skip this file, don't abort the whole task
+                raw = generate_response(BUILDER_MODEL, prompt)
+                # Strip think tags
+                raw = re.sub(r"<think>.*?</think>", "", raw, flags=re.DOTALL).strip()
+                parsed = json.loads(self._extract_json(raw))
+                files = parsed.get("files", [])
+                
+                if not files:
+                    raise ValueError("LLM returned empty files list")
+                    
+                # Write files
+                created = []
+                for file_info in files:
+                    rel_path = file_info.get("path", "")
+                    content = file_info.get("content", "")
+                    if not rel_path:
+                        continue
 
-            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-            with open(abs_path, "w", encoding="utf-8") as f:
-                f.write(content)
+                    abs_path = os.path.join(workspace.path.replace("/", os.sep), rel_path.replace("/", os.sep))
 
-            normalized = f"{workspace.path}/{rel_path.replace(os.sep, '/')}"
-            created.append(normalized)
+                    try:
+                        validate_write_path(abs_path, workspace.path)
+                    except SecurityViolationError as e:
+                        logger.warning("Path security blocked file write: %s - %s", rel_path, e)
+                        continue
 
-            await event_bus.publish(Event(
-                type="FILE_CREATED",
-                source="Builder Agent",
-                message=f"Created: {rel_path}",
-                severity="info",
-                payload={"path": normalized},
-            ))
+                    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+                    with open(abs_path, "w", encoding="utf-8") as f:
+                        f.write(content)
+
+                    normalized = f"{workspace.path}/{rel_path.replace(os.sep, '/')}"
+                    created.append(normalized)
+
+                # ── Sprint 3: Build Validation Layer (Now with retries) ──
+                validation_errors = self._validate_build_output(workspace.path, created, task)
+                if validation_errors:
+                    raise ValueError(f"Build validation failed: {'; '.join(validation_errors)}")
+
+                # Success, break out of retry loop
+                for norm_path in created:
+                    rel_path = norm_path.replace(f"{workspace.path}/", "")
+                    await event_bus.publish(Event(
+                        type="FILE_CREATED",
+                        source="Builder Agent",
+                        message=f"Created: {rel_path}",
+                        severity="info",
+                        payload={"path": norm_path},
+                    ))
+                break
+
+            except Exception as e:
+                logger.warning(f"Generation attempt {attempt + 1} failed: {e}")
+                if attempt == max_retries:
+                    logger.error(f"Max retries reached for task {task.title}. Falling back to template.")
+                    files = self._template_fallback(task, workspace)
+                    created = []
+                    for file_info in files:
+                        rel_path = file_info.get("path", "")
+                        content = file_info.get("content", "")
+                        if not rel_path:
+                            continue
+                        abs_path = os.path.join(workspace.path.replace("/", os.sep), rel_path.replace("/", os.sep))
+                        try:
+                            validate_write_path(abs_path, workspace.path)
+                        except SecurityViolationError:
+                            continue
+                        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+                        with open(abs_path, "w", encoding="utf-8") as f:
+                            f.write(content)
+                        normalized = f"{workspace.path}/{rel_path.replace(os.sep, '/')}"
+                        created.append(normalized)
+                        await event_bus.publish(Event(
+                            type="FILE_CREATED",
+                            source="Builder Agent",
+                            message=f"Created (Template): {rel_path}",
+                            severity="info",
+                            payload={"path": normalized},
+                        ))
+                    break
+                else:
+                    # Append error for retry
+                    prompt += f"\n\nERROR IN PREVIOUS ATTEMPT:\n{str(e)}\nPlease fix the errors and try again."
 
         return created
 
@@ -653,9 +849,28 @@ Rules:
 
     # ── Sprint 3: Validation ──────────────────────────────────────────────
     
-    def _validate_build_output(self, workspace_path: str, output_files: list[str]) -> list[str]:
-        """Validate files exist, are not empty, and imports resolve."""
+    def _validate_build_output(self, workspace_path: str, output_files: list[str], task=None) -> list[str]:
+        """Validate files exist, are not empty, imports resolve, and deliverables are met."""
         errors = []
+        
+        # 1. Check for expected deliverables if task is provided
+        if task:
+            metadata = getattr(task, "engineering_metadata", {}) or {}
+            deliverables = metadata.get("required_deliverables", [])
+            
+            # Simple check: do the output files somehow mention the deliverables?
+            # Or are they present in the workspace? We check if the files created cover them.
+            output_basenames = [os.path.basename(f) for f in output_files]
+            
+            # A rigorous check would parse the codebase, but a simple basename/path heuristic works for the agent.
+            for d in deliverables:
+                # E.g. "Navbar.jsx" -> check if any output file contains "Navbar"
+                clean_d = d.replace(".jsx", "").replace(".js", "").replace(".py", "")
+                found = any(clean_d.lower() in f.lower() for f in output_files)
+                if not found:
+                    errors.append(f"Missing required deliverable: {d}")
+
+        # 2. Check for empty files
         for file_path in output_files:
             native_path = file_path.replace("/", os.sep)
             if not os.path.exists(native_path):
@@ -733,35 +948,6 @@ Rules:
         if start == -1 or end == -1:
             raise ValueError("No JSON found")
         return cleaned[start:end + 1]
-
-    def _describe_existing_structure(self, workspace_path: str) -> str:
-        """List the top 2 levels of directories that exist in the workspace."""
-        native_path = workspace_path.replace("/", os.sep)
-        if not os.path.exists(native_path):
-            return "Project directory does not exist yet."
-
-        lines = []
-        try:
-            for item in sorted(os.listdir(native_path)):
-                if item.startswith(".") and item != ".agentos":
-                    continue
-                item_path = os.path.join(native_path, item)
-                if os.path.isdir(item_path):
-                    lines.append(f"  {item}/")
-                    try:
-                        for sub in sorted(os.listdir(item_path))[:10]:
-                            sub_path = os.path.join(item_path, sub)
-                            suffix = "/" if os.path.isdir(sub_path) else ""
-                            lines.append(f"    {sub}{suffix}")
-                    except OSError:
-                        pass
-                else:
-                    lines.append(f"  {item}")
-        except OSError:
-            return "Cannot read project directory."
-
-        return "\n".join(lines) if lines else "Empty project directory."
-
 
 # ── Singleton ─────────────────────────────────────────────────────────────
 
